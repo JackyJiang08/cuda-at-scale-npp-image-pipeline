@@ -1,0 +1,4 @@
+g++ -std=c++14 -O2 -Wall -Wextra -Iinclude -Ithird_party tests/host_tests.cc src/cli.cc src/cpu_reference.cc src/image.cc src/otsu.cc -o build/host_tests
+./build/host_tests
+108/108 host checks passed
+all host tests passed

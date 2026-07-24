@@ -71,6 +71,11 @@ echo "==> Sample run with intermediate stages and dilation"
 # The 3x3 mask on its own. The 5x5 NPP Gaussian was reverse engineered from
 # a real run; this pass gives the same evidence for the 3x3 path, both as
 # saved stage images and as an agreement number.
+#
+# Read the agreement, not the speedup, from this one. Eight small images are
+# nowhere near enough to amortise CUDA context and NPP initialisation, so the
+# GPU column here is almost entirely one-off startup cost. The full-dataset
+# pass below is the timing measurement.
 echo "==> 3x3 Gaussian, both engines"
 "$BIN" --input "$INPUT_DIR" --output "$RESULTS_DIR/samples_gauss3" \
        --streams 4 --gauss-size 3 --engine both --limit 8 --save-stages \

@@ -179,25 +179,64 @@ it does not, the shape of the failure points at the cause.
 
 The pipeline instruments itself with CUDA events, so every run reports, per
 image, the upload time, the kernel time, the download time, the Otsu threshold
-it selected, and the fraction of pixels classified as edge. The run then
-summarizes total megapixels, wall clock, images per second, and megapixels per
-second. `run.sh` sweeps `--streams 1 2 4 8` over the identical dataset, so the
-throughput gain from overlapping streams is a direct measurement in the logs
-rather than an assertion.
+it selected, and the fraction of pixels classified as edge. Everything below
+came from one `./run.sh` on a Colab A100-SXM4-40GB and is committed under
+`results/`.
 
-The measured numbers from the lab run are in `results/logs/`, and
-`results/contact_sheet.png` shows every input beside its edge map. Two things
-are worth looking at in those artifacts: whether the selected threshold varies
-across the dataset, which is what tells you the histogram stage is doing real
-work rather than reproducing a constant; and how the throughput line moves as
-the stream count rises, which is where the concurrency design either pays off
-or does not.
+The headline run processes all 103 images, 46.27 megapixels, in **0.639 s** of
+wall clock at four streams: 161.27 images/s, 72.44 megapixels/s, averaging
+1.663 ms of kernel time per image. Nothing failed.
+
+The stream sweep is the measurement I care most about, because it is the one
+that tests the design rather than the hardware:
+
+| streams | wall clock | images/s | speedup |
+| --- | --- | --- | --- |
+| 1 | 2.368 s | 43.50 | 1.00x |
+| 2 | 1.206 s | 85.40 | 1.96x |
+| 4 | 0.628 s | 163.97 | 3.77x |
+| 8 | 0.433 s | 237.75 | 5.47x |
+
+Scaling is near linear to four workers and still gains 45% on the step to
+eight. That is the mid-pipeline histogram synchronisation being covered by
+other workers' kernels instead of stalling the device, which is exactly what
+the per-worker stream and buffer design was for. It also says the remaining
+limit is elsewhere: at 256x256 the kernels are launch bound rather than
+bandwidth bound, which is where I would go next.
+
+Against the host reference, run through the same worker pool so the comparison
+is to a busy multi-core host rather than one idle core, the GPU is **23.2x**
+faster on summed per-image compute time, 166.5 ms against 3855.3 ms.
+
+The correctness numbers matter more to me than the speed. The two engines
+agree on the Otsu threshold for **103 of 103 images** at 5x5 and 8 of 8 at
+3x3, and the edge maps are identical on **99.9998%** of 46.27 megapixels, with
+the 3x3 comparison bit-identical outright. The worst single image,
+`textures_texmos3_s512`, still agrees on 99.979% of its pixels. Given that the
+two implementations share no code below the Otsu function and reach the answer
+by different routes, that is a much stronger statement than the images looking
+right.
+
+One number in the logs should not be read as a benchmark: the 3x3 verification
+pass reports a 0.2x "speedup", because eight small images are nowhere near
+enough to amortise CUDA context and NPP initialisation, so almost all of its
+GPU column is one-off startup. That pass exists to check agreement; the
+full-dataset run is the timing measurement.
 
 I want to be straightforward about the development conditions, because they
-shaped the engineering. I wrote and validated this on a machine with no CUDA
-device, so until the lab run there was no execution evidence at all. That
-constraint is the reason for the verification strategy described above —
-type-checking against two real toolkit header sets and pushing every piece of
-GPU-independent logic behind a unit-testable boundary. It is a decent
-substitute for running the code, but it is not the same thing, and I would not
-claim a result I had not measured.
+shaped the engineering. I wrote this on a machine with no CUDA device, so
+every GPU number here comes from running the project on a rented A100 through
+the Colab notebook in `notebooks/`, and for most of the project's life there
+was no execution evidence at all. That constraint is why so much effort went
+into things that can be checked without a GPU: keeping CUDA headers out of the
+public interface so the driver, argument parsing, and I/O stay ordinary C++;
+type-checking against two real toolkit header sets; and, in the end, writing
+the whole pipeline a second time on the host.
+
+That last decision is the one I would repeat. It was meant as a substitute for
+having a GPU, and it turned into the thing that found a real bug the GPU alone
+would never have surfaced — twice over, since the first fix was also wrong and
+only the verification pass caught it. Going from "the edge maps look like
+edges" to "the two implementations agree on 103 of 103 thresholds and
+99.9998% of 46 megapixels" is the difference between believing the code works
+and knowing it.

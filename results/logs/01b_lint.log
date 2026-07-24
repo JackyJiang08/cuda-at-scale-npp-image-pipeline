@@ -1,0 +1,4 @@
+python3 -m cpplint --quiet --recursive --linelength=80 \
+    --filter=-legal/copyright,-build/include_subdir \
+    include src tests
+cpplint reported no findings

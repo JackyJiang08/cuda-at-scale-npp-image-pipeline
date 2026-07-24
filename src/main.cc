@@ -292,7 +292,10 @@ int Run(int argc, const char* const* argv) {
   double total_cpu_ms = 0.0;
   double matching_pixels = 0.0;
   double compared_pixels = 0.0;
-  double worst_match_fraction = 1.0;
+  // Starts above any achievable fraction so that the first compared image
+  // always claims the slot. Seeding it at 1.0 left the name empty in the
+  // happy case where every image matched exactly.
+  double worst_match_fraction = 2.0;
   std::string worst_match_name;
   size_t threshold_mismatches = 0;
   for (const ImageRecord& record : records) {

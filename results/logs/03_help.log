@@ -1,0 +1,28 @@
+GPU batch edge detection with CUDA NPP.
+
+Usage: bin/edge_pipeline --input <dir> [options]
+
+Required:
+  --input <dir>          Directory of input images (png, jpg, bmp, tga).
+
+Options:
+  --output <dir>         Output directory (default: data/output).
+  --engine <name>        gpu (NPP and custom kernels), cpu (host
+                         reference), or both to run each image
+                         through the two and report the speedup and
+                         pixel agreement (default: gpu).
+  --streams <n>          Concurrent CUDA streams and worker threads,
+                         1-32 (default: 4).
+  --gauss-size <3|5>     Gaussian smoothing mask size (default: 5).
+  --sobel-scale <f>      Scale applied to gradient magnitude before
+                         clamping to 8-bit (default: 0.25).
+  --threshold <v|auto>   Binarization threshold 0-255, or 'auto' for
+                         per-image Otsu (default: auto).
+  --dilate               Thicken edges with a 3x3 dilation.
+  --save-stages          Also write gray, blurred, and gradient images.
+  --limit <n>            Process at most n images (default: all).
+  --device <n>           CUDA device index (default: 0).
+  --log <file>           Append the run log to this file as well as
+                         stdout.
+  --verbose              Print one line per image.
+  --help                 Show this message and exit.

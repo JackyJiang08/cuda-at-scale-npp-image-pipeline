@@ -1,0 +1,42 @@
+=== CUDA NPP batch edge detection ===
+started 2026-07-24 21:31:48
+device 0: NVIDIA A100-SXM4-40GB (sm_80, 108 SMs, 40441 MiB global memory)
+CUDA runtime 12.8, driver 13.0, NPP 12.3.3
+input=data/input output=results/samples_gauss3 engine=both streams=4 gauss=3x3 sobel_scale=0.25 threshold=auto(otsu) dilate=off save_stages=on device=0 limit=8
+found 8 image(s) in data/input
+  [3/8] misc_4_1_03 256x256x3 threshold=25 edges=6.66% gpu=29.515ms cpu=3.384ms match=100.000%
+  [1/8] misc_4_1_01 256x256x3 threshold=23 edges=8.89% gpu=29.389ms cpu=3.415ms match=100.000%
+  [4/8] misc_4_1_04 256x256x3 threshold=27 edges=11.76% gpu=30.070ms cpu=3.426ms match=100.000%
+  [2/8] misc_4_1_02 256x256x3 threshold=21 edges=11.27% gpu=29.420ms cpu=3.384ms match=100.000%
+  [7/8] misc_4_1_07 256x256x3 threshold=22 edges=9.95% gpu=0.061ms cpu=3.299ms match=100.000%
+  [5/8] misc_4_1_05 256x256x3 threshold=26 edges=12.95% gpu=0.079ms cpu=3.267ms match=100.000%
+  [8/8] misc_4_1_08 256x256x3 threshold=25 edges=13.89% gpu=0.077ms cpu=3.268ms match=100.000%
+  [6/8] misc_4_1_06 256x256x3 threshold=34 edges=21.37% gpu=0.065ms cpu=3.343ms match=100.000%
+
+image                              size      ch  thr  edge%   up(ms)  gpu(ms)  down(ms)   cpu(ms)   match%
+----------------------------------------------------------------------------------------------------------
+misc_4_1_01                       256x256   3   23      8.89    0.030   29.389     0.038     3.415   100.000
+misc_4_1_02                       256x256   3   21     11.27    0.046   29.420     0.073     3.384   100.000
+misc_4_1_03                       256x256   3   25      6.66    0.065   29.515     0.054     3.384   100.000
+misc_4_1_04                       256x256   3   27     11.76    0.051   30.070     0.041     3.426   100.000
+misc_4_1_05                       256x256   3   26     12.95    0.031    0.079     0.031     3.267   100.000
+misc_4_1_06                       256x256   3   34     21.37    0.030    0.065     0.031     3.343   100.000
+misc_4_1_07                       256x256   3   22      9.95    0.030    0.061     0.030     3.299   100.000
+misc_4_1_08                       256x256   3   25     13.89    0.029    0.077     0.030     3.268   100.000
+
+=== summary ===
+images processed : 8 of 8 (0 failed)
+pixels processed : 0.52 megapixels
+wall clock       : 0.082 s using 4 stream(s)
+throughput       : 97.37 images/s, 6.38 megapixels/s
+gpu time (sum)   : upload 0.3 ms, compute 118.7 ms, download 0.3 ms
+gpu time (mean)  : 14.835 ms of kernel time per image
+
+=== gpu versus host reference ===
+kernel time      : gpu 118.7 ms, cpu 26.8 ms
+speedup          : 0.2x on summed per-image compute time
+edge map match   : 100.0000% of 0.52 megapixels identical
+worst image      :  at 100.000%
+otsu threshold   : 8 of 8 images chose the same threshold on both engines
+outputs written to results/samples_gauss3
+finished 2026-07-24 21:31:48

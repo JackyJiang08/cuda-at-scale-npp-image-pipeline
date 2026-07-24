@@ -1,0 +1,11 @@
+rm -rf build bin
+mkdir -p build
+mkdir -p bin
+/usr/local/cuda/bin/nvcc -std=c++14 -O3 -Iinclude -Isrc -Ithird_party -I/usr/local/cuda/include -arch=sm_80 -Xcompiler "-Wall -Wextra" -c src/main.cc -o build/main.o
+/usr/local/cuda/bin/nvcc -std=c++14 -O3 -Iinclude -Isrc -Ithird_party -I/usr/local/cuda/include -arch=sm_80 -Xcompiler "-Wall -Wextra" -c src/cli.cc -o build/cli.o
+/usr/local/cuda/bin/nvcc -std=c++14 -O3 -Iinclude -Isrc -Ithird_party -I/usr/local/cuda/include -arch=sm_80 -Xcompiler "-Wall -Wextra" -c src/cpu_reference.cc -o build/cpu_reference.o
+/usr/local/cuda/bin/nvcc -std=c++14 -O3 -Iinclude -Isrc -Ithird_party -I/usr/local/cuda/include -arch=sm_80 -Xcompiler "-Wall -Wextra" -c src/image.cc -o build/image.o
+/usr/local/cuda/bin/nvcc -std=c++14 -O3 -Iinclude -Isrc -Ithird_party -I/usr/local/cuda/include -arch=sm_80 -Xcompiler "-Wall -Wextra" -c src/otsu.cc -o build/otsu.o
+/usr/local/cuda/bin/nvcc -std=c++14 -O3 -Iinclude -Isrc -Ithird_party -I/usr/local/cuda/include -arch=sm_80 -Xcompiler "-Wall -Wextra" -c src/gpu_pipeline.cu -o build/gpu_pipeline.o
+/usr/local/cuda/bin/nvcc -std=c++14 -O3 -Iinclude -Isrc -Ithird_party -I/usr/local/cuda/include -arch=sm_80 -Xcompiler "-Wall -Wextra" -c src/kernels.cu -o build/kernels.o
+/usr/local/cuda/bin/nvcc -std=c++14 -O3 -Iinclude -Isrc -Ithird_party -I/usr/local/cuda/include -arch=sm_80 -Xcompiler "-Wall -Wextra" build/main.o build/cli.o build/cpu_reference.o build/image.o build/otsu.o build/gpu_pipeline.o build/kernels.o -o bin/edge_pipeline -L/usr/local/cuda/lib64 -L/usr/local/cuda/lib -lnppc -lnppisu -lnppicc -lnppif -lnppim -lnppist -lcudart

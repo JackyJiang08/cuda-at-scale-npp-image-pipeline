@@ -1,0 +1,225 @@
+=== CUDA NPP batch edge detection ===
+started 2026-07-24 21:31:46
+device 0: NVIDIA A100-SXM4-40GB (sm_80, 108 SMs, 40441 MiB global memory)
+CUDA runtime 12.8, driver 13.0, NPP 12.3.3
+input=data/input output=data/output engine=gpu streams=4 gauss=5x5 sobel_scale=0.25 threshold=auto(otsu) dilate=off save_stages=off device=0
+found 103 image(s) in data/input
+  [1/103] misc_4_1_01 256x256x3 threshold=18 edges=10.06% gpu=39.086ms
+  [3/103] misc_4_1_03 256x256x3 threshold=18 edges=8.54% gpu=39.339ms
+  [4/103] misc_4_1_04 256x256x3 threshold=22 edges=13.99% gpu=39.005ms
+  [2/103] misc_4_1_02 256x256x3 threshold=15 edges=13.85% gpu=38.988ms
+  [5/103] misc_4_1_05 256x256x3 threshold=21 edges=14.24% gpu=0.067ms
+  [7/103] misc_4_1_07 256x256x3 threshold=17 edges=11.68% gpu=0.068ms
+  [6/103] misc_4_1_06 256x256x3 threshold=26 edges=24.11% gpu=0.060ms
+  [8/103] misc_4_1_08 256x256x3 threshold=20 edges=16.11% gpu=0.064ms
+  [9/103] misc_4_2_01 512x512x3 threshold=23 edges=5.58% gpu=0.204ms
+  [11/103] misc_4_2_05 512x512x3 threshold=22 edges=13.77% gpu=1.276ms
+  [12/103] misc_4_2_06 512x512x3 threshold=23 edges=17.34% gpu=0.720ms
+  [10/103] misc_4_2_03 512x512x3 threshold=17 edges=25.25% gpu=2.173ms
+  [14/103] misc_5_1_09 256x256x1 threshold=13 edges=10.65% gpu=0.058ms
+  [15/103] misc_5_1_10 256x256x1 threshold=26 edges=30.53% gpu=0.059ms
+  [16/103] misc_5_1_11 256x256x1 threshold=21 edges=7.19% gpu=0.073ms
+  [17/103] misc_5_1_12 256x256x1 threshold=24 edges=12.44% gpu=0.056ms
+  [18/103] misc_5_1_13 256x256x1 threshold=51 edges=18.71% gpu=0.055ms
+  [19/103] misc_5_1_14 256x256x1 threshold=20 edges=23.67% gpu=0.057ms
+  [13/103] misc_4_2_07 512x512x3 threshold=22 edges=10.53% gpu=0.062ms
+  [20/103] misc_5_2_08 512x512x1 threshold=22 edges=9.78% gpu=0.060ms
+  [21/103] misc_5_2_09 512x512x1 threshold=24 edges=19.97% gpu=0.059ms
+  [22/103] misc_5_2_10 512x512x1 threshold=22 edges=16.81% gpu=0.058ms
+  [26/103] misc_7_1_02 512x512x1 threshold=20 edges=3.37% gpu=0.091ms
+  [25/103] misc_7_1_01 512x512x1 threshold=10 edges=24.13% gpu=0.067ms
+  [27/103] misc_7_1_03 512x512x1 threshold=11 edges=11.70% gpu=0.061ms
+  [28/103] misc_7_1_04 512x512x1 threshold=11 edges=15.77% gpu=0.062ms
+  [29/103] misc_7_1_05 512x512x1 threshold=14 edges=21.61% gpu=0.061ms
+  [30/103] misc_7_1_06 512x512x1 threshold=13 edges=25.04% gpu=0.059ms
+  [23/103] misc_5_3_01 1024x1024x1 threshold=20 edges=11.24% gpu=4.024ms
+  [24/103] misc_5_3_02 1024x1024x1 threshold=19 edges=14.80% gpu=0.089ms
+  [32/103] misc_7_1_08 512x512x1 threshold=10 edges=8.90% gpu=0.059ms
+  [31/103] misc_7_1_07 512x512x1 threshold=11 edges=24.83% gpu=0.060ms
+  [33/103] misc_7_1_09 512x512x1 threshold=11 edges=21.77% gpu=0.055ms
+  [34/103] misc_7_1_10 512x512x1 threshold=9 edges=26.46% gpu=0.055ms
+  [36/103] misc_boat_512 512x512x1 threshold=20 edges=14.27% gpu=0.056ms
+  [37/103] misc_gray21_512 512x512x1 threshold=27 edges=1.00% gpu=0.061ms
+  [39/103] misc_ruler_512 512x512x1 threshold=25 edges=52.68% gpu=0.066ms
+  [38/103] misc_house 512x512x3 threshold=21 edges=16.74% gpu=0.068ms
+  [41/103] textures_1_1_02 512x512x1 threshold=29 edges=27.46% gpu=0.061ms
+  [40/103] textures_1_1_01 512x512x1 threshold=32 edges=37.91% gpu=0.052ms
+  [35/103] misc_7_2_01 1024x1024x1 threshold=7 edges=8.15% gpu=0.087ms
+  [42/103] textures_1_1_03 512x512x1 threshold=24 edges=30.06% gpu=0.059ms
+  [44/103] textures_1_1_05 512x512x1 threshold=14 edges=32.39% gpu=0.062ms
+  [45/103] textures_1_1_06 512x512x1 threshold=24 edges=38.25% gpu=0.053ms
+  [43/103] textures_1_1_04 512x512x1 threshold=20 edges=41.89% gpu=0.061ms
+  [47/103] textures_1_1_08 512x512x1 threshold=42 edges=0.60% gpu=0.058ms
+  [46/103] textures_1_1_07 512x512x1 threshold=19 edges=26.68% gpu=0.059ms
+  [48/103] textures_1_1_09 512x512x1 threshold=17 edges=26.64% gpu=0.061ms
+  [51/103] textures_1_1_12 512x512x1 threshold=24 edges=15.98% gpu=0.053ms
+  [49/103] textures_1_1_10 512x512x1 threshold=20 edges=37.37% gpu=0.061ms
+  [50/103] textures_1_1_11 512x512x1 threshold=15 edges=26.61% gpu=0.059ms
+  [52/103] textures_1_1_13 512x512x1 threshold=22 edges=30.48% gpu=0.054ms
+  [54/103] textures_1_2_02 512x512x1 threshold=43 edges=34.39% gpu=0.061ms
+  [53/103] textures_1_2_01 512x512x1 threshold=44 edges=40.10% gpu=0.059ms
+  [55/103] textures_1_2_03 512x512x1 threshold=44 edges=35.37% gpu=0.059ms
+  [56/103] textures_1_2_04 512x512x1 threshold=50 edges=49.48% gpu=0.055ms
+  [57/103] textures_1_2_05 512x512x1 threshold=38 edges=38.60% gpu=0.059ms
+  [58/103] textures_1_2_06 512x512x1 threshold=47 edges=37.53% gpu=0.055ms
+  [59/103] textures_1_2_07 512x512x1 threshold=46 edges=40.87% gpu=0.052ms
+  [60/103] textures_1_2_08 512x512x1 threshold=45 edges=34.44% gpu=0.058ms
+  [61/103] textures_1_2_09 512x512x1 threshold=44 edges=32.16% gpu=0.062ms
+  [64/103] textures_1_2_12 512x512x1 threshold=50 edges=16.28% gpu=0.058ms
+  [62/103] textures_1_2_10 512x512x1 threshold=48 edges=44.57% gpu=0.061ms
+  [63/103] textures_1_2_11 512x512x1 threshold=42 edges=41.06% gpu=0.061ms
+  [65/103] textures_1_2_13 512x512x1 threshold=40 edges=33.61% gpu=0.062ms
+  [67/103] textures_1_3_02 1024x1024x1 threshold=21 edges=27.89% gpu=0.079ms
+  [68/103] textures_1_3_03 1024x1024x1 threshold=21 edges=34.01% gpu=0.088ms
+  [66/103] textures_1_3_01 1024x1024x1 threshold=26 edges=38.12% gpu=0.086ms
+  [69/103] textures_1_3_04 1024x1024x1 threshold=20 edges=31.73% gpu=0.089ms
+  [70/103] textures_1_3_05 1024x1024x1 threshold=30 edges=35.24% gpu=0.088ms
+  [71/103] textures_1_3_06 1024x1024x1 threshold=21 edges=37.24% gpu=0.087ms
+  [72/103] textures_1_3_07 1024x1024x1 threshold=16 edges=25.78% gpu=0.088ms
+  [73/103] textures_1_3_08 1024x1024x1 threshold=6 edges=26.98% gpu=0.091ms
+  [74/103] textures_1_3_09 1024x1024x1 threshold=16 edges=18.68% gpu=0.096ms
+  [77/103] textures_1_3_12 1024x1024x1 threshold=16 edges=15.87% gpu=0.091ms
+  [75/103] textures_1_3_10 1024x1024x1 threshold=11 edges=30.53% gpu=0.092ms
+  [76/103] textures_1_3_11 1024x1024x1 threshold=12 edges=31.89% gpu=0.087ms
+  [78/103] textures_1_3_13 1024x1024x1 threshold=16 edges=25.76% gpu=0.091ms
+  [80/103] textures_1_4_02 1024x1024x1 threshold=22 edges=27.87% gpu=0.090ms
+  [79/103] textures_1_4_01 1024x1024x1 threshold=14 edges=28.83% gpu=0.091ms
+  [81/103] textures_1_4_03 1024x1024x1 threshold=20 edges=12.87% gpu=0.092ms
+  [82/103] textures_1_4_04 1024x1024x1 threshold=6 edges=26.77% gpu=0.092ms
+  [84/103] textures_1_4_06 1024x1024x1 threshold=10 edges=25.44% gpu=0.084ms
+  [83/103] textures_1_4_05 1024x1024x1 threshold=17 edges=15.59% gpu=0.089ms
+  [85/103] textures_1_4_07 1024x1024x1 threshold=10 edges=22.62% gpu=0.085ms
+  [86/103] textures_1_4_08 1024x1024x1 threshold=9 edges=40.00% gpu=0.089ms
+  [87/103] textures_1_4_09 1024x1024x1 threshold=23 edges=21.88% gpu=0.089ms
+  [91/103] textures_1_5_01 512x512x1 threshold=11 edges=22.17% gpu=0.066ms
+  [92/103] textures_1_5_02 512x512x1 threshold=67 edges=54.47% gpu=0.059ms
+  [93/103] textures_1_5_03 512x512x1 threshold=20 edges=22.98% gpu=0.057ms
+  [88/103] textures_1_4_10 1024x1024x1 threshold=16 edges=32.26% gpu=0.088ms
+  [89/103] textures_1_4_11 1024x1024x1 threshold=20 edges=28.77% gpu=0.094ms
+  [95/103] textures_1_5_05 512x512x1 threshold=20 edges=19.24% gpu=0.057ms
+  [94/103] textures_1_5_04 512x512x1 threshold=17 edges=28.38% gpu=0.054ms
+  [96/103] textures_1_5_06 512x512x1 threshold=5 edges=22.14% gpu=0.054ms
+  [90/103] textures_1_4_12 1024x1024x1 threshold=17 edges=35.56% gpu=0.091ms
+  [97/103] textures_1_5_07 512x512x1 threshold=16 edges=32.41% gpu=0.060ms
+  [98/103] textures_texmos1_p512 512x512x1 threshold=45 edges=39.31% gpu=0.061ms
+  [100/103] textures_texmos2_s512 512x512x1 threshold=29 edges=7.26% gpu=0.054ms
+  [102/103] textures_texmos3_s512 512x512x1 threshold=26 edges=3.41% gpu=0.083ms
+  [99/103] textures_texmos2_p512 512x512x1 threshold=45 edges=38.95% gpu=0.062ms
+  [101/103] textures_texmos3_p512 512x512x1 threshold=45 edges=38.02% gpu=0.059ms
+  [103/103] textures_texmos3b_p512 512x512x1 threshold=45 edges=37.80% gpu=0.056ms
+
+image                              size      ch  thr  edge%   up(ms)  gpu(ms)  down(ms)
+--------------------------------------------------------------------------------------
+misc_4_1_01                       256x256   3   18     10.06    0.053   39.086     0.035
+misc_4_1_02                       256x256   3   15     13.85    0.032   38.988     0.014
+misc_4_1_03                       256x256   3   18      8.54    0.051   39.339     0.021
+misc_4_1_04                       256x256   3   22     13.99    0.032   39.005     0.023
+misc_4_1_05                       256x256   3   21     14.24    0.030    0.067     0.017
+misc_4_1_06                       256x256   3   26     24.11    0.030    0.060     0.016
+misc_4_1_07                       256x256   3   17     11.68    0.032    0.068     0.017
+misc_4_1_08                       256x256   3   20     16.11    0.030    0.064     0.011
+misc_4_2_01                       512x512   3   23      5.58    0.079    0.204     0.031
+misc_4_2_03                       512x512   3   17     25.25    0.101    2.173     0.042
+misc_4_2_05                       512x512   3   22     13.77    0.088    1.276     0.045
+misc_4_2_06                       512x512   3   23     17.34    0.120    0.720     1.025
+misc_4_2_07                       512x512   3   22     10.53    0.078    0.062     0.030
+misc_5_1_09                       256x256   1   13     10.65    0.018    0.058     0.017
+misc_5_1_10                       256x256   1   26     30.53    0.018    0.059     0.018
+misc_5_1_11                       256x256   1   21      7.19    0.024    0.073     0.021
+misc_5_1_12                       256x256   1   24     12.44    0.021    0.056     0.017
+misc_5_1_13                       256x256   1   51     18.71    0.017    0.055     0.017
+misc_5_1_14                       256x256   1   20     23.67    0.017    0.057     0.017
+misc_5_2_08                       512x512   1   22      9.78    0.034    0.060     0.031
+misc_5_2_09                       512x512   1   24     19.97    0.033    0.059     0.029
+misc_5_2_10                       512x512   1   22     16.81    0.034    0.058     0.029
+misc_5_3_01                       1024x1024 1   20     11.24    0.236    4.024     0.086
+misc_5_3_02                       1024x1024 1   19     14.80    0.096    0.089     0.090
+misc_7_1_01                       512x512   1   10     24.13    0.034    0.067     0.029
+misc_7_1_02                       512x512   1   20      3.37    0.035    0.091     0.073
+misc_7_1_03                       512x512   1   11     11.70    0.035    0.061     0.028
+misc_7_1_04                       512x512   1   11     15.77    0.035    0.062     0.030
+misc_7_1_05                       512x512   1   14     21.61    0.034    0.061     0.030
+misc_7_1_06                       512x512   1   13     25.04    0.034    0.059     0.029
+misc_7_1_07                       512x512   1   11     24.83    0.034    0.060     0.031
+misc_7_1_08                       512x512   1   10      8.90    0.033    0.059     0.030
+misc_7_1_09                       512x512   1   11     21.77    0.036    0.055     0.026
+misc_7_1_10                       512x512   1   9      26.46    0.035    0.055     0.031
+misc_7_2_01                       1024x1024 1   7       8.15    0.103    0.087     0.093
+misc_boat_512                     512x512   1   20     14.27    0.034    0.056     0.029
+misc_gray21_512                   512x512   1   27      1.00    0.034    0.061     0.032
+misc_house                        512x512   3   21     16.74    0.079    0.068     0.030
+misc_ruler_512                    512x512   1   25     52.68    0.036    0.066     0.051
+textures_1_1_01                   512x512   1   32     37.91    0.036    0.052     0.031
+textures_1_1_02                   512x512   1   29     27.46    0.035    0.061     0.029
+textures_1_1_03                   512x512   1   24     30.06    0.034    0.059     0.029
+textures_1_1_04                   512x512   1   20     41.89    0.034    0.061     0.031
+textures_1_1_05                   512x512   1   14     32.39    0.033    0.062     0.028
+textures_1_1_06                   512x512   1   24     38.25    0.034    0.053     0.029
+textures_1_1_07                   512x512   1   19     26.68    0.034    0.059     0.029
+textures_1_1_08                   512x512   1   42      0.60    0.034    0.058     0.029
+textures_1_1_09                   512x512   1   17     26.64    0.034    0.061     0.029
+textures_1_1_10                   512x512   1   20     37.37    0.034    0.061     0.028
+textures_1_1_11                   512x512   1   15     26.61    0.034    0.059     0.030
+textures_1_1_12                   512x512   1   24     15.98    0.034    0.053     0.031
+textures_1_1_13                   512x512   1   22     30.48    0.034    0.054     0.029
+textures_1_2_01                   512x512   1   44     40.10    0.034    0.059     0.030
+textures_1_2_02                   512x512   1   43     34.39    0.034    0.061     0.030
+textures_1_2_03                   512x512   1   44     35.37    0.034    0.059     0.030
+textures_1_2_04                   512x512   1   50     49.48    0.033    0.055     0.030
+textures_1_2_05                   512x512   1   38     38.60    0.034    0.059     0.030
+textures_1_2_06                   512x512   1   47     37.53    0.034    0.055     0.029
+textures_1_2_07                   512x512   1   46     40.87    0.034    0.052     0.029
+textures_1_2_08                   512x512   1   45     34.44    0.034    0.058     0.030
+textures_1_2_09                   512x512   1   44     32.16    0.035    0.062     0.028
+textures_1_2_10                   512x512   1   48     44.57    0.034    0.061     0.029
+textures_1_2_11                   512x512   1   42     41.06    0.034    0.061     0.031
+textures_1_2_12                   512x512   1   50     16.28    0.033    0.058     0.030
+textures_1_2_13                   512x512   1   40     33.61    0.034    0.062     0.030
+textures_1_3_01                   1024x1024 1   26     38.12    0.098    0.086     0.093
+textures_1_3_02                   1024x1024 1   21     27.89    0.098    0.079     0.093
+textures_1_3_03                   1024x1024 1   21     34.01    0.098    0.088     0.090
+textures_1_3_04                   1024x1024 1   20     31.73    0.100    0.089     0.091
+textures_1_3_05                   1024x1024 1   30     35.24    0.100    0.088     0.093
+textures_1_3_06                   1024x1024 1   21     37.24    0.100    0.087     0.093
+textures_1_3_07                   1024x1024 1   16     25.78    0.100    0.088     0.093
+textures_1_3_08                   1024x1024 1   6      26.98    0.099    0.091     0.093
+textures_1_3_09                   1024x1024 1   16     18.68    0.101    0.096     0.091
+textures_1_3_10                   1024x1024 1   11     30.53    0.100    0.092     0.092
+textures_1_3_11                   1024x1024 1   12     31.89    0.100    0.087     0.093
+textures_1_3_12                   1024x1024 1   16     15.87    0.099    0.091     0.091
+textures_1_3_13                   1024x1024 1   16     25.76    0.099    0.091     0.091
+textures_1_4_01                   1024x1024 1   14     28.83    0.117    0.091     0.092
+textures_1_4_02                   1024x1024 1   22     27.87    0.100    0.090     0.093
+textures_1_4_03                   1024x1024 1   20     12.87    0.099    0.092     0.093
+textures_1_4_04                   1024x1024 1   6      26.77    0.099    0.092     0.092
+textures_1_4_05                   1024x1024 1   17     15.59    0.100    0.089     0.089
+textures_1_4_06                   1024x1024 1   10     25.44    0.099    0.084     0.094
+textures_1_4_07                   1024x1024 1   10     22.62    0.099    0.085     0.091
+textures_1_4_08                   1024x1024 1   9      40.00    0.099    0.089     0.092
+textures_1_4_09                   1024x1024 1   23     21.88    0.099    0.089     0.092
+textures_1_4_10                   1024x1024 1   16     32.26    0.099    0.088     0.091
+textures_1_4_11                   1024x1024 1   20     28.77    0.099    0.094     0.092
+textures_1_4_12                   1024x1024 1   17     35.56    0.099    0.091     0.091
+textures_1_5_01                   512x512   1   11     22.17    0.034    0.066     0.029
+textures_1_5_02                   512x512   1   67     54.47    0.035    0.059     0.030
+textures_1_5_03                   512x512   1   20     22.98    0.034    0.057     0.031
+textures_1_5_04                   512x512   1   17     28.38    0.033    0.054     0.031
+textures_1_5_05                   512x512   1   20     19.24    0.035    0.057     0.031
+textures_1_5_06                   512x512   1   5      22.14    0.034    0.054     0.030
+textures_1_5_07                   512x512   1   16     32.41    0.034    0.060     0.030
+textures_texmos1_p512             512x512   1   45     39.31    0.036    0.061     0.030
+textures_texmos2_p512             512x512   1   45     38.95    0.034    0.062     0.030
+textures_texmos2_s512             512x512   1   29      7.26    0.035    0.054     0.030
+textures_texmos3_p512             512x512   1   45     38.02    0.034    0.059     0.030
+textures_texmos3_s512             512x512   1   26      3.41    0.034    0.083     0.031
+textures_texmos3b_p512            512x512   1   45     37.80    0.038    0.056     0.031
+
+=== summary ===
+images processed : 103 of 103 (0 failed)
+pixels processed : 46.27 megapixels
+wall clock       : 0.639 s using 4 stream(s)
+throughput       : 161.27 images/s, 72.44 megapixels/s
+gpu time (sum)   : upload 5.8 ms, compute 171.3 ms, download 5.7 ms
+gpu time (mean)  : 1.663 ms of kernel time per image
+outputs written to data/output
+finished 2026-07-24 21:31:47

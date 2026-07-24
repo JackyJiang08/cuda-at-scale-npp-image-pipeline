@@ -1,0 +1,35 @@
+=== CUDA NPP batch edge detection ===
+started 2026-07-24 21:31:47
+device 0: NVIDIA A100-SXM4-40GB (sm_80, 108 SMs, 40441 MiB global memory)
+CUDA runtime 12.8, driver 13.0, NPP 12.3.3
+input=data/input output=results/samples engine=gpu streams=2 gauss=5x5 sobel_scale=0.25 threshold=auto(otsu) dilate=on save_stages=on device=0 limit=8
+found 8 image(s) in data/input
+  [2/8] misc_4_1_02 256x256x3 threshold=15 edges=13.85% gpu=31.867ms
+  [1/8] misc_4_1_01 256x256x3 threshold=18 edges=10.06% gpu=31.836ms
+  [3/8] misc_4_1_03 256x256x3 threshold=18 edges=8.54% gpu=0.085ms
+  [4/8] misc_4_1_04 256x256x3 threshold=22 edges=13.99% gpu=0.077ms
+  [5/8] misc_4_1_05 256x256x3 threshold=21 edges=14.24% gpu=0.070ms
+  [6/8] misc_4_1_06 256x256x3 threshold=26 edges=24.11% gpu=0.064ms
+  [7/8] misc_4_1_07 256x256x3 threshold=17 edges=11.68% gpu=0.064ms
+  [8/8] misc_4_1_08 256x256x3 threshold=20 edges=16.11% gpu=0.064ms
+
+image                              size      ch  thr  edge%   up(ms)  gpu(ms)  down(ms)
+--------------------------------------------------------------------------------------
+misc_4_1_01                       256x256   3   18     10.06    0.034   31.836     0.039
+misc_4_1_02                       256x256   3   15     13.85    0.047   31.867     0.053
+misc_4_1_03                       256x256   3   18      8.54    0.032    0.085     0.031
+misc_4_1_04                       256x256   3   22     13.99    0.031    0.077     0.030
+misc_4_1_05                       256x256   3   21     14.24    0.029    0.070     0.031
+misc_4_1_06                       256x256   3   26     24.11    0.029    0.064     0.030
+misc_4_1_07                       256x256   3   17     11.68    0.029    0.064     0.030
+misc_4_1_08                       256x256   3   20     16.11    0.029    0.064     0.031
+
+=== summary ===
+images processed : 8 of 8 (0 failed)
+pixels processed : 0.52 megapixels
+wall clock       : 0.117 s using 2 stream(s)
+throughput       : 68.15 images/s, 4.47 megapixels/s
+gpu time (sum)   : upload 0.3 ms, compute 64.1 ms, download 0.3 ms
+gpu time (mean)  : 8.016 ms of kernel time per image
+outputs written to results/samples
+finished 2026-07-24 21:31:48

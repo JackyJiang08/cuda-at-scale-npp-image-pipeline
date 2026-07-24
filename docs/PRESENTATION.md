@@ -4,8 +4,9 @@ A slide-by-slide plan for the 5-10 minute recorded demonstration, with what
 to say and roughly how long to spend. Total as written is about 8 minutes,
 which leaves room to slow down without running past 10.
 
-Numbers in `[brackets]` come from `results/logs/`; they are filled in from
-the recorded run before presenting, and the same values appear in the README.
+The numbers below are the measured ones from the committed run in
+`results/logs/`, on a Colab A100-SXM4-40GB. The same values appear in the
+README, so the two never drift apart.
 
 Recording setup that works: screen share with the repository open in one
 window and a terminal in another, so the demo is a live run rather than a
@@ -71,8 +72,17 @@ This is the part I would want a reviewer to look at hardest.
 - Buffers grow to fit the largest image seen and are then reused, so the
   dataset stops reallocating after the first few images.
 
-Put the stream-scaling numbers on this slide:
-`[streams 1 / 2 / 4 / 8 throughput, from results/logs/08_stream_scaling.log]`
+Put the stream-scaling numbers on this slide. Measured on the A100 over all
+103 images:
+
+| streams | 1 | 2 | 4 | 8 |
+| --- | --- | --- | --- | --- |
+| images/s | 43.50 | 85.40 | 163.97 | 237.75 |
+| speedup | 1.00x | 1.96x | 3.77x | 5.47x |
+
+Near linear to four workers, still 45% on the step to eight. Say what that
+means: the mid-pipeline histogram sync is being covered by other workers
+rather than stalling the device.
 
 ## Slide 5 - The interesting design tension (3:30-4:30)
 
@@ -123,10 +133,11 @@ compares:
 
 Results to report:
 
-- `[edge map match %]` of `[compared megapixels]` megapixels identical
-- `[n of 103]` images chose the same Otsu threshold on both engines
-- `[speedup]x` on summed per-image compute time against the multi-threaded
-  host reference
+- **99.9998%** of 46.27 megapixels identical, worst single image 99.979%
+- **103 of 103** images chose the same Otsu threshold on both engines, and
+  8 of 8 on the 3x3 pass, which is bit-identical outright
+- **23.2x** on summed per-image compute time against the multi-threaded host
+  reference, 166.5 ms against 3855.3 ms
 
 Then tell the debugging story, because it is the strongest thing in the
 project, and it has two acts.
@@ -190,7 +201,7 @@ Close on the repository URL again.
 ## Checklist before recording
 
 - [ ] `./run.sh` has completed and `results/` holds the current logs
-- [ ] Bracketed numbers above replaced with the measured values
+- [ ] Numbers above still match `results/logs/` if the run was repeated
 - [ ] Terminal font large enough to read at the recording resolution
 - [ ] Video is between 5 and 10 minutes
 - [ ] Repository URL is visible on the first and last slide

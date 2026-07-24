@@ -19,6 +19,7 @@ colour) from the USC-SIPI image database, so a default run processes
 - [How it scales](#how-it-scales)
 - [Correctness](#correctness)
 - [Output](#output)
+- [Results](#results)
 - [Dataset](#dataset)
 - [Testing](#testing)
 - [Design notes](#design-notes)
@@ -175,7 +176,18 @@ mixed-resolution dataset stops reallocating after the first few images rather
 than churning on every frame.
 
 `run.sh` sweeps `--streams 1 2 4 8` over the same dataset and records
-throughput for each, which is the easiest way to see the overlap paying off.
+throughput for each. Measured on an A100-SXM4-40GB over all 103 images:
+
+| streams | wall clock | images/s | megapixels/s | speedup |
+| --- | --- | --- | --- | --- |
+| 1 | 2.368 s | 43.50 | 19.54 | 1.00x |
+| 2 | 1.206 s | 85.40 | 38.36 | 1.96x |
+| 4 | 0.628 s | 163.97 | 73.66 | 3.77x |
+| 8 | 0.433 s | 237.75 | 106.80 | **5.47x** |
+
+Scaling stays close to linear to four workers and is still worth 45% on the
+step to eight, which is the mid-pipeline histogram sync being hidden behind
+other workers' kernels rather than stalling the device.
 
 ## Correctness
 
@@ -195,11 +207,11 @@ with a block like this:
 
 ```
 === gpu versus host reference ===
-kernel time      : gpu ... ms, cpu ... ms
-speedup          : ...x on summed per-image compute time
-edge map match   : ...% of ... megapixels identical
-worst image      : ... at ...%
-otsu threshold   : ... of 103 images chose the same threshold on both engines
+kernel time      : gpu 166.5 ms, cpu 3855.3 ms
+speedup          : 23.2x on summed per-image compute time
+edge map match   : 99.9998% of 46.27 megapixels identical
+worst image      : textures_texmos3_s512 at 99.979%
+otsu threshold   : 103 of 103 images chose the same threshold on both engines
 ```
 
 The host reference is deliberately independent: it convolves directly rather
@@ -233,7 +245,8 @@ true sampled Gaussian, with sigma 1.0 for the 3x3 and 1.4 for the 5x5, and it
 | **Gaussian, sigma 1.4** | **truncate** | **99.99%** |
 
 With that in place the two engines pick the same Otsu threshold on **all 103
-images** at 5x5 and all 8 at 3x3. Feeding NPP's own blurred image into the
+images** at 5x5 and all 8 at 3x3, and the edge maps agree on **99.9998%** of
+46.27 megapixels, with the 3x3 pass fully bit-identical. Feeding NPP's own blurred image into the
 host Sobel reproduces its gradient image bit for bit, so every stage after
 the blur is exact and the residual disagreement is bounded at one grey level,
 coming from fixed-point precision inside NPP that cannot be recovered from
@@ -260,14 +273,61 @@ The run log ends with a per-image table and a summary:
 
 ```
 image                              size      ch  thr  edge%   up(ms)  gpu(ms)  down(ms)
-misc_4_1_01                        256x256   3    31    8.42    0.052    0.184     0.061
+misc_4_1_01                       256x256   3   23      9.50    0.052    0.184     0.061
 ...
 === summary ===
 images processed : 103 of 103 (0 failed)
 pixels processed : 46.27 megapixels
-wall clock       : ... s using 4 stream(s)
-throughput       : ... images/s, ... megapixels/s
+wall clock       : 0.639 s using 4 stream(s)
+throughput       : 161.27 images/s, 72.44 megapixels/s
+gpu time (sum)   : upload 5.8 ms, compute 171.3 ms, download 5.7 ms
+gpu time (mean)  : 1.663 ms of kernel time per image
 ```
+
+That block is from the committed run in [results/logs/04_full_run.log](results/logs/04_full_run.log).
+
+## Results
+
+Everything below is committed under [results/](results/) and was produced by
+one `./run.sh` on a Colab A100-SXM4-40GB (sm_80, 108 SMs), CUDA runtime 12.8,
+NPP 12.3.3.
+
+| | |
+| --- | --- |
+| Images processed | 103 of 103, 0 failed |
+| Data | 46.27 megapixels in one invocation |
+| Wall clock, 4 streams | 0.639 s |
+| Throughput, 4 streams | 161.27 images/s, 72.44 megapixels/s |
+| Throughput, 8 streams | 237.75 images/s, 106.80 megapixels/s |
+| Kernel time per image | 1.663 ms mean |
+| Speedup over host reference | 23.2x on summed compute time |
+| Edge maps identical to host | 99.9998% of 46.27 megapixels |
+| Otsu threshold agreement | 103 of 103 images |
+| Host tests | 108 of 108 passing |
+| cpplint | no findings |
+
+What the logs hold:
+
+| file | what it shows |
+| --- | --- |
+| `00_build.log` | clean build from source, no warnings |
+| `01_host_tests.log`, `01b_lint.log` | tests and the style check |
+| `02_environment.log` | `nvidia-smi` and `nvcc --version` for the machine |
+| `04_full_run.log` | the headline run, one line per image plus the summary |
+| `05_stages_run.log` | intermediate stages and dilation |
+| `06_fixed_threshold.log` | the non-Otsu path |
+| `06b_gauss3_verify.log` | 3x3 mask, both engines compared |
+| `07_gpu_vs_cpu.log` | full dataset, both engines compared |
+| `08_stream_scaling.log` | the `--streams 1 2 4 8` sweep |
+| `09_error_handling.log` | bad arguments rejected cleanly |
+| `11_inventory.log` | file counts and sizes in and out |
+
+`results/contact_sheet.png` shows every input beside its edge map, and
+`results/pairs/` holds individual before/after pairs.
+
+Regenerating `results/proof_of_execution.tar.gz`, the archive for the
+assignment's upload field, is a matter of running `./run.sh`; it is not
+committed because every file in it is already here loose.
 
 ## Dataset
 
