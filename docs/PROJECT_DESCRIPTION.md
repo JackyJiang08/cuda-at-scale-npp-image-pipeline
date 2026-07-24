@@ -36,10 +36,10 @@ version and dealt with the stall through concurrency instead, and left
 `--threshold <value>` available so the difference is measurable.
 
 The second was to keep dependencies near zero. The course template uses
-FreeImage, which I found more trouble than it was worth to build. Two vendored
-public-domain `stb` headers decode and encode PNG, JPEG, BMP, and TGA in about
-fifteen lines of wrapper code, so the project needs nothing beyond the CUDA
-toolkit. I also kept CUDA headers out of the public interface by putting all
+FreeImage; I chose not to take on a separately built image library at all, so
+that the project would compile anywhere the CUDA toolkit does. Two vendored
+public-domain `stb` headers decode and encode PNG, JPEG, BMP, and TGA behind
+about fifteen lines of wrapper code. I also kept CUDA headers out of the public interface by putting all
 device state behind a `GpuPipeline::Impl`, which meant the driver, the
 argument parsing, and the I/O stayed ordinary C++ that compiles and runs
 without a GPU.
@@ -92,14 +92,27 @@ generally.
 
 ## Results
 
-The edge maps are clean: object boundaries in the Miscellaneous volume come
-out as connected contours, and the Textures volume produces the dense
-high-frequency response you would expect. Per-image Otsu thresholds vary
-widely across the dataset, which is the clearest evidence that the histogram
-stage is doing real work — a fixed threshold visibly over- or under-detects on
-the same images.
+The pipeline instruments itself with CUDA events, so every run reports, per
+image, the upload time, the kernel time, the download time, the Otsu threshold
+it selected, and the fraction of pixels classified as edge. The run then
+summarizes total megapixels, wall clock, images per second, and megapixels per
+second. `run.sh` sweeps `--streams 1 2 4 8` over the identical dataset, so the
+throughput gain from overlapping streams is a direct measurement in the logs
+rather than an assertion.
 
-`run.sh` sweeps `--streams 1 2 4 8` over the identical dataset so the
-throughput difference from overlapping streams is visible directly in the
-logs, alongside per-image upload, compute, and download times measured with
-CUDA events.
+The measured numbers from the lab run are in `results/logs/`, and
+`results/contact_sheet.png` shows every input beside its edge map. Two things
+are worth looking at in those artifacts: whether the selected threshold varies
+across the dataset, which is what tells you the histogram stage is doing real
+work rather than reproducing a constant; and how the throughput line moves as
+the stream count rises, which is where the concurrency design either pays off
+or does not.
+
+I want to be straightforward about the development conditions, because they
+shaped the engineering. I wrote and validated this on a machine with no CUDA
+device, so until the lab run there was no execution evidence at all. That
+constraint is the reason for the verification strategy described above —
+type-checking against two real toolkit header sets and pushing every piece of
+GPU-independent logic behind a unit-testable boundary. It is a decent
+substitute for running the code, but it is not the same thing, and I would not
+claim a result I had not measured.
