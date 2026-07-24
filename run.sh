@@ -28,6 +28,15 @@ make -j"$(nproc 2>/dev/null || echo 4)" 2>&1 | tee "$LOG_DIR/00_build.log"
 echo "==> Host tests (no GPU required)"
 make test 2>&1 | tee "$LOG_DIR/01_host_tests.log"
 
+echo "==> Google C++ Style check"
+if python3 -c "import cpplint" 2>/dev/null; then
+  make lint 2>&1 | tee "$LOG_DIR/01b_lint.log"
+  echo "cpplint reported no findings" | tee -a "$LOG_DIR/01b_lint.log"
+else
+  echo "cpplint not installed; skipping (pip install cpplint)" \
+      | tee "$LOG_DIR/01b_lint.log"
+fi
+
 echo "==> Environment"
 {
   echo "date: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
@@ -59,15 +68,24 @@ echo "==> Fixed-threshold run"
        --streams 4 --limit 8 --threshold 40 \
        --log "$LOG_DIR/06_fixed_threshold.log"
 
+# Correctness and baseline: every image is processed twice, once by the NPP
+# and custom-kernel path and once by the host reference, and the two edge
+# maps are compared pixel by pixel.
+echo "==> GPU versus host reference, full dataset"
+"$BIN" --input "$INPUT_DIR" --output "$OUTPUT_DIR" --streams 4 \
+       --engine both --verbose --log "$LOG_DIR/07_gpu_vs_cpu.log"
+grep -E "speedup|edge map match|otsu threshold|worst image" \
+     "$LOG_DIR/07_gpu_vs_cpu.log" || true
+
 echo "==> Stream scaling sweep"
-: > "$LOG_DIR/07_stream_scaling.log"
+: > "$LOG_DIR/08_stream_scaling.log"
 for streams in 1 2 4 8; do
-  echo "--- streams=$streams" | tee -a "$LOG_DIR/07_stream_scaling.log"
+  echo "--- streams=$streams" | tee -a "$LOG_DIR/08_stream_scaling.log"
   "$BIN" --input "$INPUT_DIR" --output "$OUTPUT_DIR" --streams "$streams" \
-         --log "$LOG_DIR/07_stream_scaling.log" >/dev/null
+         --log "$LOG_DIR/08_stream_scaling.log" >/dev/null
 done
 echo "throughput by stream count:"
-grep -E "throughput|wall clock" "$LOG_DIR/07_stream_scaling.log" || true
+grep -E "throughput|wall clock" "$LOG_DIR/08_stream_scaling.log" || true
 
 echo "==> Error handling checks (these are expected to fail cleanly)"
 {
@@ -77,16 +95,16 @@ echo "==> Error handling checks (these are expected to fail cleanly)"
   "$BIN" --input "$INPUT_DIR" --streams 0 || echo "exit=$?"
   echo "--- nonexistent input directory"
   "$BIN" --input no/such/dir || echo "exit=$?"
-} 2>&1 | tee "$LOG_DIR/08_error_handling.log"
+} 2>&1 | tee "$LOG_DIR/09_error_handling.log"
 
 echo "==> Contact sheets"
 if python3 -c "import PIL" 2>/dev/null; then
   python3 scripts/make_contact_sheet.py \
       --input "$INPUT_DIR" --output "$OUTPUT_DIR" \
-      --dest "$RESULTS_DIR" 2>&1 | tee "$LOG_DIR/09_contact_sheets.log"
+      --dest "$RESULTS_DIR" 2>&1 | tee "$LOG_DIR/10_contact_sheets.log"
 else
   echo "Pillow not installed; skipping contact sheets" \
-      | tee "$LOG_DIR/09_contact_sheets.log"
+      | tee "$LOG_DIR/10_contact_sheets.log"
 fi
 
 echo "==> Inventory"
@@ -94,7 +112,7 @@ echo "==> Inventory"
   echo "inputs:  $(find "$INPUT_DIR" -type f | wc -l) files"
   echo "outputs: $(find "$OUTPUT_DIR" -type f | wc -l) files"
   du -sh "$INPUT_DIR" "$OUTPUT_DIR" "$RESULTS_DIR"
-} 2>&1 | tee "$LOG_DIR/10_inventory.log"
+} 2>&1 | tee "$LOG_DIR/11_inventory.log"
 
 bash scripts/package_proof.sh
 

@@ -1,7 +1,7 @@
 // Otsu's method for choosing a binarization threshold from a histogram.
 
-#ifndef IMGPIPE_INCLUDE_IMGPIPE_OTSU_H_
-#define IMGPIPE_INCLUDE_IMGPIPE_OTSU_H_
+#ifndef INCLUDE_IMGPIPE_OTSU_H_
+#define INCLUDE_IMGPIPE_OTSU_H_
 
 namespace imgpipe {
 
@@ -19,4 +19,4 @@ int ComputeOtsuThreshold(const int* histogram, int bin_count);
 
 }  // namespace imgpipe
 
-#endif  // IMGPIPE_INCLUDE_IMGPIPE_OTSU_H_
+#endif  // INCLUDE_IMGPIPE_OTSU_H_

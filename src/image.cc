@@ -31,8 +31,7 @@ namespace imgpipe {
 namespace {
 
 // Extensions the stb decoders are configured to handle, lower-cased.
-const char* const kSupportedExtensions[] = {".png", ".jpg", ".jpeg", ".bmp",
-                                            ".tga"};
+const char* const kExtensions[] = {".png", ".jpg", ".jpeg", ".bmp", ".tga"};
 
 std::string ToLower(const std::string& text) {
   std::string lowered = text;
@@ -68,7 +67,7 @@ void Image::Allocate(int new_width, int new_height, int new_channels) {
 
 bool HasSupportedExtension(const std::string& path) {
   const std::string extension = LowerExtension(path);
-  for (const char* candidate : kSupportedExtensions) {
+  for (const char* candidate : kExtensions) {
     if (extension == candidate) return true;
   }
   return false;

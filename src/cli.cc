@@ -1,5 +1,6 @@
 #include "imgpipe/cli.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <sstream>
 #include <string>
@@ -13,8 +14,9 @@ namespace {
 bool ParseInt(const std::string& text, int* value) {
   if (text.empty()) return false;
   char* end = nullptr;
-  const long parsed = std::strtol(text.c_str(), &end, 10);
+  const int64_t parsed = std::strtoll(text.c_str(), &end, 10);
   if (end == nullptr || *end != '\0') return false;
+  if (parsed < INT32_MIN || parsed > INT32_MAX) return false;
   *value = static_cast<int>(parsed);
   return true;
 }
@@ -43,6 +45,18 @@ bool TakeValue(int argc, const char* const* argv, int* index,
 
 }  // namespace
 
+std::string EngineName(Engine engine) {
+  switch (engine) {
+    case Engine::kCpu:
+      return "cpu";
+    case Engine::kBoth:
+      return "both";
+    case Engine::kGpu:
+    default:
+      return "gpu";
+  }
+}
+
 std::string UsageText(const std::string& program_name) {
   std::ostringstream out;
   out << "GPU batch edge detection with CUDA NPP.\n\n"
@@ -52,6 +66,10 @@ std::string UsageText(const std::string& program_name) {
          " tga).\n\n"
       << "Options:\n"
       << "  --output <dir>         Output directory (default: data/output).\n"
+      << "  --engine <name>        gpu (NPP and custom kernels), cpu (host\n"
+      << "                         reference), or both to run each image\n"
+      << "                         through the two and report the speedup and\n"
+      << "                         pixel agreement (default: gpu).\n"
       << "  --streams <n>          Concurrent CUDA streams and worker"
          " threads,\n"
       << "                         1-32 (default: 4).\n"
@@ -92,6 +110,18 @@ bool ParseCommandLine(int argc, const char* const* argv, Options* options,
     } else if (flag == "--log") {
       if (!TakeValue(argc, argv, &i, flag, &value, error)) return false;
       options->log_path = value;
+    } else if (flag == "--engine") {
+      if (!TakeValue(argc, argv, &i, flag, &value, error)) return false;
+      if (value == "gpu") {
+        options->engine = Engine::kGpu;
+      } else if (value == "cpu") {
+        options->engine = Engine::kCpu;
+      } else if (value == "both") {
+        options->engine = Engine::kBoth;
+      } else {
+        *error = "--engine expects gpu, cpu, or both, got '" + value + "'";
+        return false;
+      }
     } else if (flag == "--streams") {
       if (!TakeValue(argc, argv, &i, flag, &value, error)) return false;
       if (!ParseInt(value, &options->stream_count) ||
@@ -161,6 +191,7 @@ bool ParseCommandLine(int argc, const char* const* argv, Options* options,
 std::string DescribeOptions(const Options& options) {
   std::ostringstream out;
   out << "input=" << options.input_dir << " output=" << options.output_dir
+      << " engine=" << EngineName(options.engine)
       << " streams=" << options.stream_count
       << " gauss=" << options.gauss_size << "x" << options.gauss_size
       << " sobel_scale=" << options.sobel_scale << " threshold=";

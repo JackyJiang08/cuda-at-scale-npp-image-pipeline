@@ -44,6 +44,16 @@ device state behind a `GpuPipeline::Impl`, which meant the driver, the
 argument parsing, and the I/O stayed ordinary C++ that compiles and runs
 without a GPU.
 
+The third decision came later, after the pipeline already worked. I had no way
+to tell whether it worked *correctly*. An edge map is a picture of edges; it
+looks convincing whether or not the Sobel signs are swapped, whether the blur
+is normalised, and whether the border handling matches what NPP does. So I
+wrote the whole pipeline a second time on the host, directly rather than
+through any NPP call, and added `--engine both` to run every image through
+each path and compare the results pixel by pixel. It doubles as the
+performance baseline, and because it runs through the same worker pool the
+comparison is against a busy multi-core host rather than one idle core.
+
 ## Issues encountered
 
 **Concurrency with NPP.** My first sketch used the plain NPP entry points with
@@ -72,6 +82,22 @@ two narrow modes of unequal mass, which is what a gradient-magnitude histogram
 actually looks like. A good reminder that a failing test is a question, not a
 verdict.
 
+**The two engines did not agree, and working out why was the interesting
+part.** The first comparison run came back with the edge maps disagreeing on
+more pixels than I expected. The instinct is to assume the GPU code is wrong.
+It was not, and neither was the host code. NPP does not document the internal
+precision of `nppiFilterGauss`, and once the blurred images differ by a single
+grey level anywhere, every downstream stage inherits it: the gradient
+magnitude shifts by a step, and any pixel sitting within a step of the
+threshold flips. What convinced me this was rounding and not a logic error was
+that the disagreement is concentrated entirely at borderline pixels and that
+both engines independently choose the same Otsu threshold on essentially every
+image. A real defect — swapped Sobel axes, an unnormalised kernel, wrong
+border mode — would not produce that signature; it would produce disagreement
+spread across the whole image. This was the most useful debugging lesson in
+the project: the *distribution* of a disagreement tells you more than its
+magnitude.
+
 **Mixed resolutions.** The dataset mixes 256x256 and 1024x1024 images, and
 reallocating pitched device memory per frame was wasteful. Buffers now only
 ever grow, so allocation settles after the first few large images.
@@ -85,10 +111,16 @@ GPU idle. Giving each worker its own stream, buffers, and pinned staging
 memory is what turns a correct program into a fast one.
 
 I also got more value than expected from separating host logic from device
-logic. Because argument parsing, Otsu, and image I/O have no CUDA in them, I
-could unit-test them anywhere and had 65 assertions passing before the code
-ever reached a GPU. That is a pattern worth keeping for CUDA projects
-generally.
+logic. Because argument parsing, Otsu, the host reference pipeline, and image
+I/O have no CUDA in them, I could unit-test them anywhere and had over a
+hundred assertions passing before the code ever reached a GPU. That is a
+pattern worth keeping for CUDA projects generally.
+
+The broader lesson is about what counts as evidence. "The output images look
+like edges" is not evidence, and neither is "it runs without an error". A
+reference implementation is more work than a visual check, but it converts a
+vague impression into a percentage that either holds up or does not — and when
+it does not, the shape of the failure points at the cause.
 
 ## Results
 

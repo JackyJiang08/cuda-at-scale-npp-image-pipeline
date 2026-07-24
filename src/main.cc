@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "imgpipe/cli.h"
+#include "imgpipe/cpu_reference.h"
 #include "imgpipe/gpu_pipeline.h"
 #include "imgpipe/image.h"
 
@@ -34,7 +35,15 @@ struct ImageRecord {
   int width = 0;
   int height = 0;
   int channels = 0;
+  // Timing of the engine whose output was written to disk: the GPU whenever
+  // it ran, otherwise the host reference.
   FrameTiming timing;
+  // Only filled when the host reference also ran, that is under --engine cpu
+  // or --engine both.
+  double cpu_ms = 0.0;
+  int cpu_threshold = 0;
+  bool compared = false;
+  AgreementStats agreement;
   bool ok = false;
   std::string error;
 };
@@ -121,9 +130,33 @@ void RunWorker(const Options& options, const std::vector<std::string>& paths,
     record.channels = input.channels;
 
     StageImages stages;
-    if (!pipeline->Process(input, &stages, &record.timing, &record.error)) {
+    if (options.engine == Engine::kCpu) {
+      if (!RunCpuPipeline(options, input, &stages, &record.timing,
+                          &record.error)) {
+        continue;
+      }
+      record.cpu_ms = record.timing.compute_ms;
+    } else if (!pipeline->Process(input, &stages, &record.timing,
+                                  &record.error)) {
       continue;
     }
+
+    // In --engine both the same image goes through the host reference as
+    // well. The GPU result is the one written to disk; the host result is
+    // only used to time the baseline and to check the edge maps agree.
+    if (options.engine == Engine::kBoth) {
+      StageImages cpu_stages;
+      FrameTiming cpu_timing;
+      if (!RunCpuPipeline(options, input, &cpu_stages, &cpu_timing,
+                          &record.error)) {
+        continue;
+      }
+      record.cpu_ms = cpu_timing.compute_ms;
+      record.cpu_threshold = cpu_timing.threshold;
+      record.agreement = CompareImages(stages.edges, cpu_stages.edges);
+      record.compared = true;
+    }
+
     if (!WriteOutputs(options, record.name, stages, &record.error)) continue;
     record.ok = true;
 
@@ -133,7 +166,12 @@ void RunWorker(const Options& options, const std::vector<std::string>& paths,
            << " " << input.width << "x" << input.height << "x"
            << input.channels << " threshold=" << record.timing.threshold
            << " edges=" << FormatFixed(100.0 * record.timing.edge_fraction, 2)
-           << "% gpu=" << FormatFixed(record.timing.compute_ms, 3) << "ms";
+           << "% " << (options.engine == Engine::kCpu ? "cpu=" : "gpu=")
+           << FormatFixed(record.timing.compute_ms, 3) << "ms";
+      if (record.compared) {
+        line << " cpu=" << FormatFixed(record.cpu_ms, 3) << "ms match="
+             << FormatFixed(100.0 * record.agreement.MatchFraction(), 3) << "%";
+      }
       logger->Write(line.str());
     }
   }
@@ -161,12 +199,18 @@ int Run(int argc, const char* const* argv) {
   logger.Write("=== CUDA NPP batch edge detection ===");
   logger.Write("started " + CurrentTimestamp());
 
-  std::string device_description;
-  if (!SelectDevice(options.device, &device_description, &error)) {
-    std::cerr << "error: " << error << "\n";
-    return 1;
+  // --engine cpu is the one mode that must work on a machine with no CUDA
+  // device at all, so the device is only claimed when it will be used.
+  if (options.engine == Engine::kCpu) {
+    logger.Write("device: none (host reference engine)");
+  } else {
+    std::string device_description;
+    if (!SelectDevice(options.device, &device_description, &error)) {
+      std::cerr << "error: " << error << "\n";
+      return 1;
+    }
+    logger.Write(device_description);
   }
-  logger.Write(device_description);
   logger.Write(DescribeOptions(options));
 
   std::vector<std::string> paths;
@@ -194,13 +238,17 @@ int Run(int argc, const char* const* argv) {
   const int worker_count =
       std::min<int>(options.stream_count, static_cast<int>(paths.size()));
   std::vector<std::unique_ptr<GpuPipeline>> pipelines;
-  pipelines.reserve(worker_count);
-  for (int i = 0; i < worker_count; ++i) {
-    pipelines.emplace_back(new GpuPipeline);
-    if (!pipelines[i]->Initialize(options, &error)) {
-      std::cerr << "error: worker " << i << ": " << error << "\n";
-      return 1;
+  if (options.engine != Engine::kCpu) {
+    pipelines.reserve(worker_count);
+    for (int i = 0; i < worker_count; ++i) {
+      pipelines.emplace_back(new GpuPipeline);
+      if (!pipelines[i]->Initialize(options, &error)) {
+        std::cerr << "error: worker " << i << ": " << error << "\n";
+        return 1;
+      }
     }
+  } else {
+    pipelines.resize(worker_count);
   }
 
   std::vector<ImageRecord> records(paths.size());
@@ -219,19 +267,34 @@ int Run(int argc, const char* const* argv) {
   const double wall_seconds =
       std::chrono::duration<double>(finish - start).count();
 
+  const bool comparing = options.engine == Engine::kBoth;
   logger.Write("");
-  logger.Write(
-      "image                              size      ch  thr  edge%   up(ms) "
-      " gpu(ms)  down(ms)");
-  logger.Write(
-      "-------------------------------------------------------------------"
-      "-------------------");
+  {
+    std::string header =
+        "image                              size      ch  thr  edge%   up(ms) "
+        " gpu(ms)  down(ms)";
+    std::string rule =
+        "-------------------------------------------------------------------"
+        "-------------------";
+    if (comparing) {
+      header += "   cpu(ms)   match%";
+      rule += "--------------------";
+    }
+    logger.Write(header);
+    logger.Write(rule);
+  }
 
   size_t succeeded = 0;
   double total_megapixels = 0.0;
   double total_compute_ms = 0.0;
   double total_upload_ms = 0.0;
   double total_download_ms = 0.0;
+  double total_cpu_ms = 0.0;
+  double matching_pixels = 0.0;
+  double compared_pixels = 0.0;
+  double worst_match_fraction = 1.0;
+  std::string worst_match_name;
+  size_t threshold_mismatches = 0;
   for (const ImageRecord& record : records) {
     if (!record.ok) {
       logger.Write("FAILED " + record.name + ": " + record.error);
@@ -243,6 +306,18 @@ int Run(int argc, const char* const* argv) {
     total_compute_ms += record.timing.compute_ms;
     total_upload_ms += record.timing.upload_ms;
     total_download_ms += record.timing.download_ms;
+    total_cpu_ms += record.cpu_ms;
+    if (record.compared) {
+      matching_pixels += static_cast<double>(record.agreement.matching);
+      compared_pixels += static_cast<double>(record.agreement.pixels);
+      if (record.agreement.MatchFraction() < worst_match_fraction) {
+        worst_match_fraction = record.agreement.MatchFraction();
+        worst_match_name = record.name;
+      }
+      if (record.cpu_threshold != record.timing.threshold) {
+        ++threshold_mismatches;
+      }
+    }
 
     std::ostringstream size_text;
     size_text << record.width << "x" << record.height;
@@ -254,6 +329,10 @@ int Run(int argc, const char* const* argv) {
          << std::setw(9) << FormatFixed(record.timing.upload_ms, 3)
          << std::setw(9) << FormatFixed(record.timing.compute_ms, 3)
          << std::setw(10) << FormatFixed(record.timing.download_ms, 3);
+    if (comparing) {
+      line << std::setw(10) << FormatFixed(record.cpu_ms, 3) << std::setw(10)
+           << FormatFixed(100.0 * record.agreement.MatchFraction(), 3);
+    }
     logger.Write(line.str());
   }
 
@@ -275,7 +354,9 @@ int Run(int argc, const char* const* argv) {
   {
     std::ostringstream out;
     out << "wall clock       : " << FormatFixed(wall_seconds, 3) << " s using "
-        << worker_count << " stream(s)";
+        << worker_count
+        << (options.engine == Engine::kCpu ? " worker thread(s)"
+                                           : " stream(s)");
     logger.Write(out.str());
   }
   {
@@ -300,6 +381,45 @@ int Run(int argc, const char* const* argv) {
         << FormatFixed(total_compute_ms / static_cast<double>(succeeded), 3)
         << " ms of kernel time per image";
     logger.Write(out.str());
+  }
+  if (comparing && succeeded > 0) {
+    logger.Write("");
+    logger.Write("=== gpu versus host reference ===");
+    {
+      std::ostringstream out;
+      out << "kernel time      : gpu " << FormatFixed(total_compute_ms, 1)
+          << " ms, cpu " << FormatFixed(total_cpu_ms, 1) << " ms";
+      logger.Write(out.str());
+    }
+    {
+      std::ostringstream out;
+      out << "speedup          : "
+          << FormatFixed(total_cpu_ms / std::max(total_compute_ms, 1e-9), 1)
+          << "x on summed per-image compute time";
+      logger.Write(out.str());
+    }
+    {
+      std::ostringstream out;
+      out << "edge map match   : "
+          << FormatFixed(100.0 * matching_pixels /
+                             std::max(compared_pixels, 1.0),
+                         4)
+          << "% of " << FormatFixed(compared_pixels / 1.0e6, 2)
+          << " megapixels identical";
+      logger.Write(out.str());
+    }
+    {
+      std::ostringstream out;
+      out << "worst image      : " << worst_match_name << " at "
+          << FormatFixed(100.0 * worst_match_fraction, 3) << "%";
+      logger.Write(out.str());
+    }
+    {
+      std::ostringstream out;
+      out << "otsu threshold   : " << succeeded - threshold_mismatches << " of "
+          << succeeded << " images chose the same threshold on both engines";
+      logger.Write(out.str());
+    }
   }
   logger.Write("outputs written to " + options.output_dir);
   logger.Write("finished " + CurrentTimestamp());

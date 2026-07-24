@@ -4,8 +4,8 @@
 // Only 8-bit-per-channel data is supported, with either one channel
 // (grayscale) or three channels (RGB).
 
-#ifndef IMGPIPE_INCLUDE_IMGPIPE_IMAGE_H_
-#define IMGPIPE_INCLUDE_IMGPIPE_IMAGE_H_
+#ifndef INCLUDE_IMGPIPE_IMAGE_H_
+#define INCLUDE_IMGPIPE_IMAGE_H_
 
 #include <cstddef>
 #include <string>
@@ -66,4 +66,4 @@ std::string JoinPath(const std::string& directory, const std::string& name);
 
 }  // namespace imgpipe
 
-#endif  // IMGPIPE_INCLUDE_IMGPIPE_IMAGE_H_
+#endif  // INCLUDE_IMGPIPE_IMAGE_H_

@@ -17,6 +17,7 @@ find_package(CUDAToolkit REQUIRED)
 add_executable(edge_pipeline
   src/main.cc
   src/cli.cc
+  src/cpu_reference.cc
   src/image.cc
   src/otsu.cc
   src/gpu_pipeline.cu
@@ -39,6 +40,7 @@ set_target_properties(edge_pipeline PROPERTIES
 add_executable(host_tests
   tests/host_tests.cc
   src/cli.cc
+  src/cpu_reference.cc
   src/image.cc
   src/otsu.cc
 )

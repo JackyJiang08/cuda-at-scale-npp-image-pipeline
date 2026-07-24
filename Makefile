@@ -2,7 +2,9 @@
 #
 #   make                 build bin/edge_pipeline (needs the CUDA toolkit)
 #   make test            build and run the host-only tests (no GPU needed)
+#   make lint            check the sources against the Google C++ Style Guide
 #   make run             build, then process data/input into data/output
+#   make verify          run every image through both engines and compare
 #   make clean           remove build artifacts
 #
 # Override CUDA_PATH if the toolkit is not in /usr/local/cuda, and GENCODE to
@@ -37,7 +39,7 @@ LDFLAGS   := -L$(CUDA_PATH)/lib64 -L$(CUDA_PATH)/lib
 # nppist: histograms.
 LDLIBS    := -lnppc -lnppisu -lnppicc -lnppif -lnppim -lnppist -lcudart
 
-HOST_SRCS := src/cli.cc src/image.cc src/otsu.cc
+HOST_SRCS := src/cli.cc src/cpu_reference.cc src/image.cc src/otsu.cc
 CUDA_SRCS := src/gpu_pipeline.cu src/kernels.cu
 OBJS      := $(BUILD_DIR)/main.o \
              $(patsubst src/%.cc,$(BUILD_DIR)/%.o,$(HOST_SRCS)) \
@@ -47,7 +49,7 @@ INPUT_DIR  ?= data/input
 OUTPUT_DIR ?= data/output
 STREAMS    ?= 4
 
-.PHONY: all test run clean
+.PHONY: all test lint run verify clean
 
 all: $(TARGET)
 
@@ -67,9 +69,23 @@ test: $(TEST_BIN)
 $(TEST_BIN): tests/host_tests.cc $(HOST_SRCS) | $(BUILD_DIR)
 	$(CXX) -std=$(STD) -O2 $(WARNINGS) -Iinclude -Ithird_party $^ -o $@
 
+# Style check against the Google C++ Style Guide. Two categories are
+# suppressed: legal/copyright, because the licence lives in LICENSE rather
+# than in a per-file banner, and build/include_subdir, because src/kernels.h
+# is a private header included by path-relative name from its own directory.
+lint:
+	python3 -m cpplint --quiet --recursive --linelength=80 \
+	    --filter=-legal/copyright,-build/include_subdir \
+	    include src tests
+
 run: $(TARGET)
 	./$(TARGET) --input $(INPUT_DIR) --output $(OUTPUT_DIR) \
 	            --streams $(STREAMS) --verbose
+
+# Runs both engines over every image and reports speedup and agreement.
+verify: $(TARGET)
+	./$(TARGET) --input $(INPUT_DIR) --output $(OUTPUT_DIR) \
+	            --streams $(STREAMS) --engine both --verbose
 
 $(BUILD_DIR) $(BIN_DIR):
 	mkdir -p $@

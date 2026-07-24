@@ -3,36 +3,17 @@
 // This header is deliberately free of CUDA headers so that the driver code
 // stays ordinary host C++; all device state lives behind GpuPipeline::Impl.
 
-#ifndef IMGPIPE_INCLUDE_IMGPIPE_GPU_PIPELINE_H_
-#define IMGPIPE_INCLUDE_IMGPIPE_GPU_PIPELINE_H_
+#ifndef INCLUDE_IMGPIPE_GPU_PIPELINE_H_
+#define INCLUDE_IMGPIPE_GPU_PIPELINE_H_
 
 #include <memory>
 #include <string>
 
 #include "imgpipe/cli.h"
 #include "imgpipe/image.h"
+#include "imgpipe/pipeline_types.h"
 
 namespace imgpipe {
-
-// Intermediate results of one pass through the pipeline. `edges` is always
-// produced; the other stages are only filled when Options::save_stages is set.
-struct StageImages {
-  Image gray;
-  Image blurred;
-  Image gradient;
-  Image edges;
-};
-
-// Per-image measurements collected with CUDA events.
-struct FrameTiming {
-  double upload_ms = 0.0;
-  double compute_ms = 0.0;
-  double download_ms = 0.0;
-  int threshold = 0;
-  // Share of pixels classified as edge, in [0, 1], counted by the
-  // binarization kernel and therefore measured before any dilation.
-  double edge_fraction = 0.0;
-};
 
 // Selects `device` and writes a human-readable description of it to
 // `*description`. Returns false and fills `*error` if the device is
@@ -69,4 +50,4 @@ class GpuPipeline {
 
 }  // namespace imgpipe
 
-#endif  // IMGPIPE_INCLUDE_IMGPIPE_GPU_PIPELINE_H_
+#endif  // INCLUDE_IMGPIPE_GPU_PIPELINE_H_

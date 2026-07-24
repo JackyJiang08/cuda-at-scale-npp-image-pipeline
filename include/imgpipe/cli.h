@@ -1,7 +1,7 @@
 // Command line parsing for the batch edge-detection pipeline.
 
-#ifndef IMGPIPE_INCLUDE_IMGPIPE_CLI_H_
-#define IMGPIPE_INCLUDE_IMGPIPE_CLI_H_
+#ifndef INCLUDE_IMGPIPE_CLI_H_
+#define INCLUDE_IMGPIPE_CLI_H_
 
 #include <string>
 
@@ -13,11 +13,19 @@ enum class ThresholdMode {
   kFixed,  // The same user-supplied value for every image.
 };
 
+// Which implementation of the pipeline processes each image.
+enum class Engine {
+  kGpu,   // NPP plus the custom kernels. The default.
+  kCpu,   // The host reference implementation, for a baseline without a GPU.
+  kBoth,  // Run both and report the speedup and the pixel-level agreement.
+};
+
 // Runtime configuration assembled from argv.
 struct Options {
   std::string input_dir;
   std::string output_dir = "data/output";
   std::string log_path;
+  Engine engine = Engine::kGpu;
   int stream_count = 4;
   int gauss_size = 5;
   float sobel_scale = 0.25f;
@@ -37,6 +45,9 @@ struct Options {
 bool ParseCommandLine(int argc, const char* const* argv, Options* options,
                       std::string* error);
 
+// Returns the lower-case name of `engine` as accepted by --engine.
+std::string EngineName(Engine engine);
+
 // Returns the multi-line usage message for `program_name`.
 std::string UsageText(const std::string& program_name);
 
@@ -45,4 +56,4 @@ std::string DescribeOptions(const Options& options);
 
 }  // namespace imgpipe
 
-#endif  // IMGPIPE_INCLUDE_IMGPIPE_CLI_H_
+#endif  // INCLUDE_IMGPIPE_CLI_H_

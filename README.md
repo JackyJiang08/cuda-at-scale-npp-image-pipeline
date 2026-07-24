@@ -14,8 +14,10 @@ colour) from the USC-SIPI image database, so a default run processes
 - [Repository layout](#repository-layout)
 - [Building](#building)
 - [Running](#running)
+- [Running on Colab](#running-on-colab)
 - [Command line reference](#command-line-reference)
 - [How it scales](#how-it-scales)
+- [Correctness](#correctness)
 - [Output](#output)
 - [Dataset](#dataset)
 - [Testing](#testing)
@@ -52,10 +54,13 @@ src/
   cli.cc             argument parsing and validation
   image.cc           PNG/JPEG/BMP/TGA decode and encode, directory listing
   otsu.cc            Otsu threshold selection from a histogram
+  cpu_reference.cc   the same pipeline on the host: oracle and baseline
   gpu_pipeline.cu    NPP stage sequence, stream and buffer management
   kernels.cu         the two custom CUDA kernels
 tests/host_tests.cc  tests for everything that does not need a GPU
 scripts/             data fetch, contact sheets, proof packaging
+notebooks/           Colab notebook that builds and runs the whole thing
+docs/                project description and presentation script
 third_party/stb/     vendored public-domain image codecs
 data/input/          103 USC-SIPI images
 run.sh               end-to-end build, run, and evidence collection
@@ -103,6 +108,14 @@ sheets, and a packaged archive:
 It leaves logs in `results/logs/`, images in `data/output/` and
 `results/`, and a ready-to-upload `results/proof_of_execution.tar.gz`.
 
+## Running on Colab
+
+If you do not have an NVIDIA GPU to hand, `notebooks/run_on_colab.ipynb`
+builds and runs the whole project on a free Colab T4 and downloads the
+evidence archive at the end. Open it in Colab, set *Runtime -> Change runtime
+type -> GPU*, and run the cells in order; it takes about five minutes and
+needs no configuration, because the dataset travels with the repository.
+
 ## Command line reference
 
 ```
@@ -111,6 +124,10 @@ Required:
 
 Options:
   --output <dir>         Output directory (default: data/output).
+  --engine <name>        gpu (NPP and custom kernels), cpu (host reference),
+                         or both to run each image through the two and
+                         report the speedup and pixel agreement
+                         (default: gpu).
   --streams <n>          Concurrent CUDA streams and worker threads, 1-32
                          (default: 4).
   --gauss-size <3|5>     Gaussian smoothing mask size (default: 5).
@@ -158,6 +175,46 @@ than churning on every frame.
 `run.sh` sweeps `--streams 1 2 4 8` over the same dataset and records
 throughput for each, which is the easiest way to see the overlap paying off.
 
+## Correctness
+
+An edge map looks plausible whether or not it is right, so the project ships
+a second implementation of the entire pipeline on the host
+(`src/cpu_reference.cc`) and a mode that runs both and compares them:
+
+```bash
+./bin/edge_pipeline --input data/input --engine both --streams 4 --verbose
+# or
+make verify
+```
+
+Every image goes through the NPP-and-custom-kernel path and through the host
+reference, the two edge maps are compared pixel by pixel, and the run ends
+with a block like this:
+
+```
+=== gpu versus host reference ===
+kernel time      : gpu ... ms, cpu ... ms
+speedup          : ...x on summed per-image compute time
+edge map match   : ...% of ... megapixels identical
+worst image      : ... at ...%
+otsu threshold   : ... of 103 images chose the same threshold on both engines
+```
+
+The host reference is deliberately independent: it convolves directly rather
+than calling anything from NPP. It is also run through the same worker pool,
+so the speedup is measured against a busy multi-core host rather than a
+single idle core.
+
+Agreement is not expected to be bit-exact. NPP does not document the internal
+precision of `nppiFilterGauss`, so a pixel whose gradient magnitude lands
+within a step or two of the threshold can fall on either side of it. The
+useful signal is that the disagreement stays confined to those borderline
+pixels and that both engines pick the same Otsu threshold.
+
+`--engine cpu` runs the host reference on its own and is the one mode that
+needs no CUDA device at all, which makes it a convenient way to check the
+tool works before moving to a GPU machine.
+
 ## Output
 
 For every input `name.png`:
@@ -199,12 +256,25 @@ The pipeline reads any PNG, JPEG, BMP, or TGA directory, so pointing
 
 ## Testing
 
-Argument parsing, Otsu, and image/directory I/O are covered by tests that
-need no GPU:
+Argument parsing, Otsu, the host reference pipeline, and image/directory I/O
+are covered by tests that need no GPU:
 
 ```bash
 make test
 ```
+
+The sources are checked against the Google C++ Style Guide with
+[cpplint](https://github.com/cpplint/cpplint):
+
+```bash
+pip install cpplint
+make lint      # reports nothing when the tree is clean
+```
+
+Two cpplint categories are suppressed and both are noted in the Makefile:
+`legal/copyright`, because the licence lives in `LICENSE` rather than in a
+per-file banner, and `build/include_subdir`, because `src/kernels.h` is a
+private header included by name from its own directory.
 
 ## Design notes
 
@@ -214,6 +284,13 @@ seen it. That forces one `cudaStreamSynchronize` per image mid-pipeline. With
 several streams in flight the other workers keep the device busy during that
 stall, which is a large part of why the stream count matters. Passing
 `--threshold <value>` removes the sync entirely and is measurably faster.
+
+**Why a second implementation.** The GPU path chains six NPP entry points and
+two hand-written kernels. Without an independent implementation there is
+nothing to check the output against beyond eyeballing it, and eyeballing an
+edge map does not distinguish a correct detector from one whose Sobel signs
+are swapped. The host reference costs about 250 lines and turns "the images
+look right" into a number.
 
 **Why `stb` instead of FreeImage.** The only third-party dependency is two
 vendored public-domain headers, so the project builds with nothing beyond the

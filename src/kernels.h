@@ -2,8 +2,8 @@
 // the pipeline. Declared separately from the pipeline so the device code
 // lives in a single translation unit.
 
-#ifndef IMGPIPE_SRC_KERNELS_H_
-#define IMGPIPE_SRC_KERNELS_H_
+#ifndef SRC_KERNELS_H_
+#define SRC_KERNELS_H_
 
 #include <cuda_runtime.h>
 #include <npp.h>
@@ -31,4 +31,4 @@ cudaError_t LaunchBinarize(const Npp8u* gradient, int gradient_step,
 
 }  // namespace imgpipe
 
-#endif  // IMGPIPE_SRC_KERNELS_H_
+#endif  // SRC_KERNELS_H_
