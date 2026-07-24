@@ -82,21 +82,54 @@ two narrow modes of unequal mass, which is what a gradient-magnitude histogram
 actually looks like. A good reminder that a failing test is a question, not a
 verdict.
 
-**The two engines did not agree, and working out why was the interesting
-part.** The first comparison run came back with the edge maps disagreeing on
-more pixels than I expected. The instinct is to assume the GPU code is wrong.
-It was not, and neither was the host code. NPP does not document the internal
-precision of `nppiFilterGauss`, and once the blurred images differ by a single
-grey level anywhere, every downstream stage inherits it: the gradient
-magnitude shifts by a step, and any pixel sitting within a step of the
-threshold flips. What convinced me this was rounding and not a logic error was
-that the disagreement is concentrated entirely at borderline pixels and that
-both engines independently choose the same Otsu threshold on essentially every
-image. A real defect — swapped Sobel axes, an unnormalised kernel, wrong
-border mode — would not produce that signature; it would produce disagreement
-spread across the whole image. This was the most useful debugging lesson in
-the project: the *distribution* of a disagreement tells you more than its
-magnitude.
+**The two engines did not agree, and running that down was the most
+interesting work in the project.** The first comparison run on the A100 came
+back with the edge maps 96.3% identical, which sounds fine, and with the two
+engines agreeing on the Otsu threshold for exactly **1 of 103 images**, which
+does not. Worse, the host threshold was *always* higher than the GPU's, by one
+to eight bins. A one-sided error is never noise; something was systematically
+different.
+
+The saved stage images made it tractable. Comparing them one stage at a time
+showed the grayscale conversion was 100% bit-identical, so BT.601 was right,
+and the divergence appeared at the blur: only 41.7% of blurred pixels matched,
+with the host's mean brightness half a grey level above NPP's. That half-level
+offset is the fingerprint of truncation versus rounding, and the fact that the
+error survived into the gradient meant the kernel itself was wrong too.
+
+Rather than keep guessing at masks, I solved for it. Taking one NPP
+input/output pair, a least-squares fit of a general 5x5 kernel over the
+interior pixels recovered a mask with a centre tap near 15/159 and off-centre
+taps near 12/159 and 9/159 — which is not the binomial outer product I had
+assumed, but the 159-divisor Gaussian approximation from the Canny literature,
+and it is not even separable. Testing the candidates directly confirmed it:
+
+| 5x5 kernel | rounding | pixels identical to NPP | max error |
+| --- | --- | --- | --- |
+| binomial / 256 | round | 41.7% | 16 |
+| binomial / 256 | truncate | 58.9% | 16 |
+| Canny / 159 | round | 50.5% | 2 |
+| Canny / 159 | truncate | 95.4% | 1 |
+
+With the blur corrected, threshold agreement went from 1 of 103 images to 82
+of 103 exactly and 102 of 103 within a single bin. Better still, feeding NPP's
+own blurred image into the host Sobel and magnitude stages reproduces NPP's
+gradient image *bit for bit*, which isolates the entire remaining disagreement
+to one stage and bounds it at one grey level.
+
+The one image that still disagrees, `misc_ruler_512`, turned out not to be a
+defect either. Its gradient histogram has two nearly equal Otsu optima — 98.3%
+and 100.0% of the peak between-class variance — so a one-level difference
+anywhere upstream is enough to flip the argmax from 25 to 32. That is a
+property of a photograph of a ruler, which is mostly hard black-on-white
+edges, and no amount of matching NPP's arithmetic would make it stable.
+
+Two lessons stuck. The first is that the *direction* and *distribution* of a
+disagreement carry more information than its size: 96.3% agreement looked
+acceptable and was hiding a real bug, while the one-sided threshold error gave
+it away immediately. The second is that when a library's behaviour is
+undocumented, fitting a model to its input/output pairs beats reading forum
+posts about what the mask probably is.
 
 **Mixed resolutions.** The dataset mixes 256x256 and 1024x1024 images, and
 reallocating pitched device memory per frame was wasteful. Buffers now only

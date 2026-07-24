@@ -207,11 +207,37 @@ than calling anything from NPP. It is also run through the same worker pool,
 so the speedup is measured against a busy multi-core host rather than a
 single idle core.
 
-Agreement is not expected to be bit-exact. NPP does not document the internal
-precision of `nppiFilterGauss`, so a pixel whose gradient magnitude lands
-within a step or two of the threshold can fall on either side of it. The
-useful signal is that the disagreement stays confined to those borderline
-pixels and that both engines pick the same Otsu threshold.
+Building the reference implementation is also how the project learned what
+NPP actually computes. The first comparison run disagreed on the Otsu
+threshold for 102 of 103 images, always in the same direction, which is the
+signature of a systematic difference rather than noise. Working backwards
+through the saved stage images showed the grayscale stage matching exactly
+and the divergence beginning at the blur, and a least-squares fit of a 5x5
+kernel to one NPP input/output pair identified the cause:
+`nppiFilterGaussBorder` with a 5x5 mask does not use the separable binomial
+kernel, it uses the 159-divisor mask from the Canny literature, and it
+truncates where the obvious implementation rounds.
+
+| 5x5 kernel | rounding | pixels identical to NPP | max error |
+| --- | --- | --- | --- |
+| binomial / 256 | round | 41.7% | 16 |
+| binomial / 256 | truncate | 58.9% | 16 |
+| Canny / 159 | round | 50.5% | 2 |
+| Canny / 159 | truncate | **95.4%** | **1** |
+
+With that corrected, the Sobel and gradient-magnitude stages reproduce NPP's
+output exactly: feeding NPP's own blurred image into the host reference gives
+a bit-identical gradient image. The residual disagreement is confined to the
+blur, is never more than one grey level, and comes from fixed-point precision
+inside NPP that is not documented and cannot be recovered from the outside.
+
+So agreement is not expected to be bit-exact, and the useful signal is where
+the disagreement lives: at pixels whose gradient magnitude sits within a
+grey level of the threshold. One image, `misc_ruler_512`, still selects a
+different threshold from the GPU, and that is inherent rather than a defect:
+its gradient histogram has two nearly equal Otsu maxima, 98.3% and 100.0% of
+peak between-class variance, so a one-level difference anywhere in the blur
+is enough to move the argmax between them.
 
 `--engine cpu` runs the host reference on its own and is the one mode that
 needs no CUDA device at all, which makes it a convenient way to check the

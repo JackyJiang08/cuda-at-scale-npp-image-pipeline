@@ -7,10 +7,12 @@
 // against, run through the same worker pool so that the comparison is
 // against a busy multi-core host rather than a single idle core.
 //
-// The stages mirror the device pipeline exactly: BT.601 luma, a separable
-// binomial blur with replicated borders, 3x3 Sobel derivatives, a scaled
-// gradient magnitude, a 256-bin histogram, an Otsu threshold, binarization,
-// and an optional 3x3 dilation.
+// The stages mirror the device pipeline exactly: BT.601 luma, a Gaussian
+// blur with replicated borders, 3x3 Sobel derivatives, a scaled gradient
+// magnitude, a 256-bin histogram, an Otsu threshold, binarization, and an
+// optional 3x3 dilation. Where NPP's arithmetic is not documented it was
+// determined empirically against real NPP output; see the notes in
+// cpu_reference.cc.
 
 #ifndef INCLUDE_IMGPIPE_CPU_REFERENCE_H_
 #define INCLUDE_IMGPIPE_CPU_REFERENCE_H_

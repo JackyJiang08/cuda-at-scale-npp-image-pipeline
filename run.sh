@@ -62,6 +62,16 @@ echo "==> Sample run with intermediate stages and dilation"
        --limit 8 --save-stages --dilate --verbose \
        --log "$LOG_DIR/05_stages_run.log"
 
+# The 3x3 mask on its own. The 5x5 NPP Gaussian was reverse engineered from
+# a real run; this pass gives the same evidence for the 3x3 path, both as
+# saved stage images and as an agreement number.
+echo "==> 3x3 Gaussian, both engines"
+"$BIN" --input "$INPUT_DIR" --output "$RESULTS_DIR/samples_gauss3" \
+       --streams 4 --gauss-size 3 --engine both --limit 8 --save-stages \
+       --verbose --log "$LOG_DIR/06b_gauss3_verify.log"
+grep -E "speedup|edge map match|otsu threshold" \
+     "$LOG_DIR/06b_gauss3_verify.log" || true
+
 # A fixed threshold run, to show the non-Otsu path works too.
 echo "==> Fixed-threshold run"
 "$BIN" --input "$INPUT_DIR" --output "$RESULTS_DIR/samples_fixed" \

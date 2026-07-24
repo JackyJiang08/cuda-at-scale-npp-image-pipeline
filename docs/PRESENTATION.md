@@ -128,12 +128,26 @@ Results to report:
 - `[speedup]x` on summed per-image compute time against the multi-threaded
   host reference
 
-Be honest about the residual disagreement: NPP does not document the internal
-precision of `nppiFilterGauss`, so a small number of pixels sit on the far
-side of the threshold from where the host reference puts them. The
-disagreement is concentrated at exactly the pixels whose gradient magnitude
-lands within a step or two of the threshold, which is what you would expect
-from rounding rather than from a logic error.
+Then tell the debugging story, because it is the strongest thing in the
+project. The first comparison run agreed on the Otsu threshold for **1 image
+out of 103**, and the host value was always higher, never lower. One-sided
+error means a systematic difference, not noise. The saved stage images
+localised it: grayscale was 100% bit-identical, the blur was not. A
+least-squares fit of a 5x5 kernel to one NPP input/output pair showed that
+`nppiFilterGaussBorder` does not use the separable binomial mask - it uses the
+159-divisor Canny mask, and it truncates where the obvious implementation
+rounds. Correcting that took threshold agreement from 1 of 103 to 82 of 103
+exact, and NPP's own blur fed through my Sobel now reproduces its gradient
+image bit for bit.
+
+Put the kernel comparison table on the slide; it makes the point in one look.
+
+Finish with the one image that still disagrees, `misc_ruler_512`, and why it
+is not a defect: its gradient histogram has two nearly equal Otsu optima, at
+98.3% and 100.0% of peak between-class variance, so a single grey level
+anywhere upstream flips the argmax. A photograph of a ruler is almost all hard
+black-on-white edges, and no amount of matching NPP's arithmetic stabilises
+that.
 
 ## Slide 8 - What I would do next (7:30-8:00)
 

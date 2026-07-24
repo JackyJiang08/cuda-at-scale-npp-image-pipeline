@@ -12,11 +12,28 @@
 namespace imgpipe {
 namespace {
 
-// The separable binomial weights NPP applies for a 3x3 and a 5x5
-// nppiFilterGauss. They are stored unnormalised; the divisor is the square of
-// the row sum because the same weights are applied along both axes.
-const int kGauss3[] = {1, 2, 1};
-const int kGauss5[] = {1, 4, 6, 4, 1};
+// The masks NPP applies for nppiFilterGauss, stored unnormalised. Both are
+// symmetric under reflection in either axis, so only one quadrant is kept,
+// indexed as [abs(dy)][abs(dx)] with the centre tap at [0][0].
+//
+//     3x3, divided by 16        5x5, divided by 159
+//        1  2  1                   2  4  5  4  2
+//        2  4  2                   4  9 12  9  4
+//        1  2  1                   5 12 15 12  5
+//                                  4  9 12  9  4
+//                                  2  4  5  4  2
+//
+// The 5x5 is *not* the binomial outer product; it is the 159-divisor
+// approximation familiar from the Canny literature, and unlike the binomial
+// it is not separable. This was established by least-squares fitting a 5x5
+// kernel to an (input, output) pair from a real NPP run and then confirming
+// the candidate directly: the binomial reproduces 41.7% of NPP's output
+// pixels exactly, this mask reproduces 95.4% with a maximum error of one
+// grey level. See docs/PROJECT_DESCRIPTION.md.
+const int kGauss3Quadrant[2][2] = {{4, 2}, {2, 1}};
+const int kGauss3Divisor = 16;
+const int kGauss5Quadrant[3][3] = {{15, 12, 5}, {12, 9, 4}, {5, 4, 2}};
+const int kGauss5Divisor = 159;
 
 // Clamps `value` into [0, limit - 1], which is how NPP_BORDER_REPLICATE
 // behaves at the edges of the ROI.
@@ -64,30 +81,29 @@ void ConvertRgbToGray(const Image& rgb, Image* gray) {
 }
 
 void FilterGaussian(const Image& gray, int mask_size, Image* blurred) {
-  const int* weights = mask_size == 3 ? kGauss3 : kGauss5;
-  const int taps = mask_size == 3 ? 3 : 5;
-  const int radius = taps / 2;
-
-  int row_sum = 0;
-  for (int i = 0; i < taps; ++i) row_sum += weights[i];
-  const int divisor = row_sum * row_sum;
+  const bool small = mask_size == 3;
+  const int radius = small ? 1 : 2;
+  const int divisor = small ? kGauss3Divisor : kGauss5Divisor;
 
   blurred->Allocate(gray.width, gray.height, 1);
-  // The 2x1D passes are done as one 2D convolution so that there is a single
-  // rounding step, which keeps the result closer to what NPP produces than
-  // rounding an intermediate row buffer would.
   for (int y = 0; y < gray.height; ++y) {
     for (int x = 0; x < gray.width; ++x) {
       int accumulator = 0;
       for (int ky = -radius; ky <= radius; ++ky) {
-        const int weight_y = weights[ky + radius];
         for (int kx = -radius; kx <= radius; ++kx) {
-          accumulator += weight_y * weights[kx + radius] *
-                         SampleReplicated(gray, x + kx, y + ky);
+          const int dy = ky < 0 ? -ky : ky;
+          const int dx = kx < 0 ? -kx : kx;
+          const int weight =
+              small ? kGauss3Quadrant[dy][dx] : kGauss5Quadrant[dy][dx];
+          accumulator += weight * SampleReplicated(gray, x + kx, y + ky);
         }
       }
+      // NPP truncates here rather than rounding. Matching that matters more
+      // than it looks: rounding biases every blurred pixel up by half a grey
+      // level on average, which survives into the gradient magnitude and
+      // pulls the Otsu threshold off by several bins.
       blurred->pixels[static_cast<size_t>(y) * gray.width + x] =
-          SaturateToByte((accumulator + divisor / 2) / divisor);
+          SaturateToByte(accumulator / divisor);
     }
   }
 }
