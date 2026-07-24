@@ -111,7 +111,7 @@ It leaves logs in `results/logs/`, images in `data/output/` and
 
 ## Running on Colab
 
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/JackyJiang08/cuda-at-scale-npp-image-pipeline/blob/main/notebooks/run_on_colab.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/JackyJiang08/CUDA-NPP-Edge-Detection/blob/main/notebooks/run_on_colab.ipynb)
 
 If you do not have an NVIDIA GPU to hand, `notebooks/run_on_colab.ipynb`
 builds and runs the whole project on a free Colab T4 and downloads the
