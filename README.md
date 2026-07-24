@@ -208,36 +208,42 @@ so the speedup is measured against a busy multi-core host rather than a
 single idle core.
 
 Building the reference implementation is also how the project learned what
-NPP actually computes. The first comparison run disagreed on the Otsu
-threshold for 102 of 103 images, always in the same direction, which is the
-signature of a systematic difference rather than noise. Working backwards
-through the saved stage images showed the grayscale stage matching exactly
-and the divergence beginning at the blur, and a least-squares fit of a 5x5
-kernel to one NPP input/output pair identified the cause:
-`nppiFilterGaussBorder` with a 5x5 mask does not use the separable binomial
-kernel, it uses the 159-divisor mask from the Canny literature, and it
-truncates where the obvious implementation rounds.
+NPP actually computes, and it took two passes to get right.
 
-| 5x5 kernel | rounding | pixels identical to NPP | max error |
-| --- | --- | --- | --- |
-| binomial / 256 | round | 41.7% | 16 |
-| binomial / 256 | truncate | 58.9% | 16 |
-| Canny / 159 | round | 50.5% | 2 |
-| Canny / 159 | truncate | **95.4%** | **1** |
+The first comparison run on an A100 disagreed on the Otsu threshold for 102
+of 103 images, always in the same direction. A one-sided error is systematic,
+not noise. Comparing the saved stage images one at a time showed the
+grayscale stage matching bit for bit and the divergence starting at the blur,
+so a least-squares fit of a free 5x5 kernel to one NPP input/output pair
+pinned down the mask. It was not the separable binomial kernel that seemed
+obvious. That correction took threshold agreement to 82 of 103.
 
-With that corrected, the Sobel and gradient-magnitude stages reproduce NPP's
-output exactly: feeding NPP's own blurred image into the host reference gives
-a bit-identical gradient image. The residual disagreement is confined to the
-blur, is never more than one grey level, and comes from fixed-point precision
-inside NPP that is not documented and cannot be recovered from the outside.
+It was still wrong. The 3x3 verification pass added at the same time came
+back agreeing on 1 of 8 images, which showed the first fix had found a better
+approximation rather than the actual filter. Sweeping the standard deviation
+against the saved stage images settled it: `nppiFilterGaussBorder` uses a
+true sampled Gaussian, with sigma 1.0 for the 3x3 and 1.4 for the 5x5, and it
+**truncates** where the obvious implementation rounds.
 
-So agreement is not expected to be bit-exact, and the useful signal is where
-the disagreement lives: at pixels whose gradient magnitude sits within a
-grey level of the threshold. One image, `misc_ruler_512`, still selects a
-different threshold from the GPU, and that is inherent rather than a defect:
-its gradient histogram has two nearly equal Otsu maxima, 98.3% and 100.0% of
-peak between-class variance, so a one-level difference anywhere in the blur
-is enough to move the argmax between them.
+| 5x5 kernel | rounding | pixels identical to NPP |
+| --- | --- | --- |
+| binomial / 256 | round | 29.7% |
+| binomial / 256 | truncate | 40.0% |
+| integer approximation / 159 | truncate | 89.4% |
+| **Gaussian, sigma 1.4** | **truncate** | **99.99%** |
+
+With that in place the two engines pick the same Otsu threshold on **all 103
+images** at 5x5 and all 8 at 3x3. Feeding NPP's own blurred image into the
+host Sobel reproduces its gradient image bit for bit, so every stage after
+the blur is exact and the residual disagreement is bounded at one grey level,
+coming from fixed-point precision inside NPP that cannot be recovered from
+outside the library.
+
+One detail is worth recording because it is so easy to get backwards:
+normalising the Gaussian weights up front matches NPP better than
+accumulating unnormalised and dividing at the end, by exactly one image out
+of 103. The two differ by a single ULP, which is invisible under rounding and
+decisive under truncation.
 
 `--engine cpu` runs the host reference on its own and is the one mode that
 needs no CUDA device at all, which makes it a convenient way to check the

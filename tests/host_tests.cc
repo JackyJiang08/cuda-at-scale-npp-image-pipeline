@@ -228,17 +228,27 @@ void TestCpuStages() {
   REQUIRE_EQ(static_cast<int>(gray.pixels[0]), 76);
   REQUIRE_EQ(static_cast<int>(gray.pixels[1]), 150);
 
-  // A constant image must survive the blur untouched. That only holds if the
-  // weights are normalised and the borders replicate, so this one check
-  // covers both.
+  // Blurring a constant image must give back a constant image, edges
+  // included. Uniformity is the real assertion: an unnormalised kernel or a
+  // border that reads zeros outside the image would both show up as the
+  // margin differing from the interior.
+  //
+  // The result is allowed to sit one grey level below the input rather than
+  // exactly on it. NPP truncates instead of rounding, this reference matches
+  // that, and normalised floating-point weights sum to 1 only to within a
+  // ULP, so a flat 200 can legitimately come back as 199. Asserting equality
+  // here would be asserting rounding behaviour the device does not have.
   imgpipe::Image flat = MakeStepImage(8, 8, 200, 200);
   for (const int mask_size : {3, 5}) {
     imgpipe::Image blurred;
     imgpipe::FilterGaussian(flat, mask_size, &blurred);
     REQUIRE_EQ(static_cast<int>(blurred.pixels.size()), 64);
-    bool all_equal = true;
-    for (unsigned char value : blurred.pixels) all_equal &= value == 200;
-    Check(all_equal, "constant image is unchanged by the blur", __LINE__);
+    const int first = blurred.pixels[0];
+    bool uniform = true;
+    for (unsigned char value : blurred.pixels) uniform &= value == first;
+    Check(uniform, "constant image stays constant through the blur", __LINE__);
+    Check(first == 200 || first == 199,
+          "constant image keeps its level through the blur", __LINE__);
   }
 
   // A constant image has no gradient anywhere, borders included.

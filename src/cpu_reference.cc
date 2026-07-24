@@ -12,28 +12,24 @@
 namespace imgpipe {
 namespace {
 
-// The masks NPP applies for nppiFilterGauss, stored unnormalised. Both are
-// symmetric under reflection in either axis, so only one quadrant is kept,
-// indexed as [abs(dy)][abs(dx)] with the centre tap at [0][0].
+// The standard deviations NPP uses for nppiFilterGauss.
 //
-//     3x3, divided by 16        5x5, divided by 159
-//        1  2  1                   2  4  5  4  2
-//        2  4  2                   4  9 12  9  4
-//        1  2  1                   5 12 15 12  5
-//                                  4  9 12  9  4
-//                                  2  4  5  4  2
-//
-// The 5x5 is *not* the binomial outer product; it is the 159-divisor
-// approximation familiar from the Canny literature, and unlike the binomial
-// it is not separable. This was established by least-squares fitting a 5x5
-// kernel to an (input, output) pair from a real NPP run and then confirming
-// the candidate directly: the binomial reproduces 41.7% of NPP's output
-// pixels exactly, this mask reproduces 95.4% with a maximum error of one
-// grey level. See docs/PROJECT_DESCRIPTION.md.
-const int kGauss3Quadrant[2][2] = {{4, 2}, {2, 1}};
-const int kGauss3Divisor = 16;
-const int kGauss5Quadrant[3][3] = {{15, 12, 5}, {12, 9, 4}, {5, 4, 2}};
-const int kGauss5Divisor = 159;
+// NPP's Gaussian is neither the binomial mask nor one of the small-integer
+// approximations; it is a true sampled Gaussian, and it truncates the result
+// rather than rounding it. Both facts were recovered from real NPP output
+// rather than from documentation: a least-squares fit of a free kernel to an
+// (input, output) pair gave tap ratios matching a Gaussian, and sweeping
+// sigma against the saved stage images of a GPU run put the optimum at these
+// values. At them, this implementation reproduces 99.99% of NPP's 5x5 output
+// and 99.2% of its 3x3 output, never off by more than one grey level; the
+// binomial mask that seemed obvious reproduces 40% and 64%. The residual is
+// NPP's internal fixed-point precision, which is not recoverable from
+// outside the library. See docs/PROJECT_DESCRIPTION.md.
+const double kGauss3Sigma = 1.0;
+const double kGauss5Sigma = 1.4;
+
+// Largest number of taps along one axis, for the 5x5 mask.
+const int kMaxGaussTaps = 5;
 
 // Clamps `value` into [0, limit - 1], which is how NPP_BORDER_REPLICATE
 // behaves at the edges of the ROI.
@@ -83,19 +79,32 @@ void ConvertRgbToGray(const Image& rgb, Image* gray) {
 void FilterGaussian(const Image& gray, int mask_size, Image* blurred) {
   const bool small = mask_size == 3;
   const int radius = small ? 1 : 2;
-  const int divisor = small ? kGauss3Divisor : kGauss5Divisor;
+  const int taps = 2 * radius + 1;
+  const double sigma = small ? kGauss3Sigma : kGauss5Sigma;
+
+  // The Gaussian is separable, so one set of 1D weights defines the mask.
+  // Normalising the 1D weights up front matches NPP measurably better than
+  // accumulating unnormalised and dividing at the end: the former agrees with
+  // the device on the Otsu threshold for all 103 images of the bundled
+  // dataset, the latter for 102. The difference is a single ULP of rounding,
+  // which matters here only because the result is truncated.
+  double weights[kMaxGaussTaps];
+  double total = 0.0;
+  for (int i = 0; i < taps; ++i) {
+    const double offset = i - radius;
+    weights[i] = std::exp(-(offset * offset) / (2.0 * sigma * sigma));
+    total += weights[i];
+  }
+  for (int i = 0; i < taps; ++i) weights[i] /= total;
 
   blurred->Allocate(gray.width, gray.height, 1);
   for (int y = 0; y < gray.height; ++y) {
     for (int x = 0; x < gray.width; ++x) {
-      int accumulator = 0;
+      double accumulator = 0.0;
       for (int ky = -radius; ky <= radius; ++ky) {
         for (int kx = -radius; kx <= radius; ++kx) {
-          const int dy = ky < 0 ? -ky : ky;
-          const int dx = kx < 0 ? -kx : kx;
-          const int weight =
-              small ? kGauss3Quadrant[dy][dx] : kGauss5Quadrant[dy][dx];
-          accumulator += weight * SampleReplicated(gray, x + kx, y + ky);
+          accumulator += weights[ky + radius] * weights[kx + radius] *
+                         SampleReplicated(gray, x + kx, y + ky);
         }
       }
       // NPP truncates here rather than rounding. Matching that matters more
@@ -103,7 +112,7 @@ void FilterGaussian(const Image& gray, int mask_size, Image* blurred) {
       // level on average, which survives into the gradient magnitude and
       // pulls the Otsu threshold off by several bins.
       blurred->pixels[static_cast<size_t>(y) * gray.width + x] =
-          SaturateToByte(accumulator / divisor);
+          SaturateToByte(static_cast<int>(accumulator));
     }
   }
 }

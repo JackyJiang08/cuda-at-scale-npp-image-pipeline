@@ -86,9 +86,8 @@ verdict.
 interesting work in the project.** The first comparison run on the A100 came
 back with the edge maps 96.3% identical, which sounds fine, and with the two
 engines agreeing on the Otsu threshold for exactly **1 of 103 images**, which
-does not. Worse, the host threshold was *always* higher than the GPU's, by one
-to eight bins. A one-sided error is never noise; something was systematically
-different.
+does not. Worse, the host threshold was *always* higher than the GPU's, never
+lower. A one-sided error is systematic; something was genuinely different.
 
 The saved stage images made it tractable. Comparing them one stage at a time
 showed the grayscale conversion was 100% bit-identical, so BT.601 was right,
@@ -97,39 +96,60 @@ with the host's mean brightness half a grey level above NPP's. That half-level
 offset is the fingerprint of truncation versus rounding, and the fact that the
 error survived into the gradient meant the kernel itself was wrong too.
 
-Rather than keep guessing at masks, I solved for it. Taking one NPP
+Rather than keep guessing at masks, I solved for one. Taking a single NPP
 input/output pair, a least-squares fit of a general 5x5 kernel over the
-interior pixels recovered a mask with a centre tap near 15/159 and off-centre
-taps near 12/159 and 9/159 — which is not the binomial outer product I had
-assumed, but the 159-divisor Gaussian approximation from the Canny literature,
-and it is not even separable. Testing the candidates directly confirmed it:
+interior pixels recovered tap ratios that were clearly not the binomial outer
+product I had assumed. Switching to the integer approximation those ratios
+resembled took agreement from 41.7% of pixels to 95.4% and threshold agreement
+from 1 image to 82.
 
-| 5x5 kernel | rounding | pixels identical to NPP | max error |
-| --- | --- | --- | --- |
-| binomial / 256 | round | 41.7% | 16 |
-| binomial / 256 | truncate | 58.9% | 16 |
-| Canny / 159 | round | 50.5% | 2 |
-| Canny / 159 | truncate | 95.4% | 1 |
+**And that fix was still wrong, which is the part I am gladdest about.** In the
+same change I had added a 3x3 verification pass to `run.sh`, on the principle
+that the 5x5 mask had been reverse engineered and the 3x3 had only been assumed.
+The next run came back with the 3x3 path agreeing on the threshold for 1 of 8
+images. If I had only checked the 5x5 I would have shipped a plausible-looking
+95% and called it precision loss.
 
-With the blur corrected, threshold agreement went from 1 of 103 images to 82
-of 103 exactly and 102 of 103 within a single bin. Better still, feeding NPP's
-own blurred image into the host Sobel and magnitude stages reproduces NPP's
-gradient image *bit for bit*, which isolates the entire remaining disagreement
-to one stage and bounds it at one grey level.
+The 3x3 fit pointed at ratios matching a true Gaussian rather than any integer
+mask, so I swept the standard deviation against the saved stage images for both
+sizes. The optimum was unambiguous, and it is simply what the function says on
+the label: NPP's Gaussian is a sampled Gaussian, sigma 1.0 for the 3x3 and 1.4
+for the 5x5, truncated rather than rounded.
 
-The one image that still disagrees, `misc_ruler_512`, turned out not to be a
-defect either. Its gradient histogram has two nearly equal Otsu optima — 98.3%
-and 100.0% of the peak between-class variance — so a one-level difference
-anywhere upstream is enough to flip the argmax from 25 to 32. That is a
-property of a photograph of a ruler, which is mostly hard black-on-white
-edges, and no amount of matching NPP's arithmetic would make it stable.
+| 5x5 kernel | rounding | pixels identical to NPP |
+| --- | --- | --- |
+| binomial / 256 | round | 29.7% |
+| binomial / 256 | truncate | 40.0% |
+| integer approximation / 159 | truncate | 89.4% |
+| Gaussian, sigma 1.4 | truncate | 99.99% |
 
-Two lessons stuck. The first is that the *direction* and *distribution* of a
-disagreement carry more information than its size: 96.3% agreement looked
-acceptable and was hiding a real bug, while the one-sided threshold error gave
-it away immediately. The second is that when a library's behaviour is
-undocumented, fitting a model to its input/output pairs beats reading forum
-posts about what the mask probably is.
+The two engines now choose the same Otsu threshold on **all 103 images** at 5x5
+and all 8 at 3x3, including `misc_ruler_512`, which had been the worst case
+throughout. That image is a genuinely marginal one — its gradient histogram has
+two Otsu optima within 1.7% of each other, so a single grey level anywhere
+upstream flips the argmax — and getting it to agree was the clearest signal
+that the blur was finally right rather than merely close.
+
+There is a last detail I would not have believed before measuring it.
+Normalising the Gaussian weights up front agrees with NPP on all 103 images;
+accumulating unnormalised and dividing once at the end agrees on 102. The two
+differ by one ULP. Under rounding that is invisible, but the filter truncates,
+so a value landing at 199.9999999 instead of 200.0 becomes a different pixel.
+The same ULP is why the unit test asserting "a constant image is unchanged by
+the blur" started failing: that test encoded a rounding assumption the device
+does not have, so I corrected the test to assert what a truncating filter
+actually guarantees — that a flat field stays flat, edges included, within one
+level — which still catches the normalisation and border bugs it was there to
+catch.
+
+Three lessons stuck. The *direction* of a disagreement carries more information
+than its size: 96.3% agreement looked acceptable and was hiding a real bug,
+while the one-sided threshold error gave it away immediately. When a library's
+behaviour is undocumented, fitting a model to its input/output pairs beats
+reasoning about what the mask probably is. And a verification pass is worth
+most on the path you did *not* investigate — the 3x3 check existed only because
+the 5x5 had needed work, and it is the reason the first fix did not ship as the
+final answer.
 
 **Mixed resolutions.** The dataset mixes 256x256 and 1024x1024 images, and
 reallocating pitched device memory per frame was wasteful. Buffers now only

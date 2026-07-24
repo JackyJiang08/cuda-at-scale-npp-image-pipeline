@@ -129,25 +129,45 @@ Results to report:
   host reference
 
 Then tell the debugging story, because it is the strongest thing in the
-project. The first comparison run agreed on the Otsu threshold for **1 image
-out of 103**, and the host value was always higher, never lower. One-sided
-error means a systematic difference, not noise. The saved stage images
-localised it: grayscale was 100% bit-identical, the blur was not. A
-least-squares fit of a 5x5 kernel to one NPP input/output pair showed that
-`nppiFilterGaussBorder` does not use the separable binomial mask - it uses the
-159-divisor Canny mask, and it truncates where the obvious implementation
-rounds. Correcting that took threshold agreement from 1 of 103 to 82 of 103
-exact, and NPP's own blur fed through my Sobel now reproduces its gradient
-image bit for bit.
+project, and it has two acts.
 
-Put the kernel comparison table on the slide; it makes the point in one look.
+**Act one.** The first comparison run agreed on the Otsu threshold for **1
+image out of 103**, and the host value was always higher, never lower.
+One-sided error means a systematic difference, not noise. The saved stage
+images localised it: grayscale was 100% bit-identical, the blur was not. A
+least-squares fit of a free 5x5 kernel to one NPP input/output pair showed
+the mask was not the separable binomial one I had assumed. Correcting it took
+agreement to 82 of 103.
 
-Finish with the one image that still disagrees, `misc_ruler_512`, and why it
-is not a defect: its gradient histogram has two nearly equal Otsu optima, at
-98.3% and 100.0% of peak between-class variance, so a single grey level
-anywhere upstream flips the argmax. A photograph of a ruler is almost all hard
-black-on-white edges, and no amount of matching NPP's arithmetic stabilises
-that.
+**Act two, which is the better half.** That same change added a 3x3
+verification pass, because the 5x5 had been reverse engineered while the 3x3
+had only been assumed. The next run showed the 3x3 agreeing on 1 of 8 images.
+The first fix had found a good approximation, not the truth. Sweeping sigma
+against the saved stages settled it: `nppiFilterGaussBorder` is a true sampled
+Gaussian, sigma 1.0 at 3x3 and 1.4 at 5x5, and it truncates rather than rounds.
+
+Put this table on the slide; it makes the point in one look.
+
+| 5x5 kernel | rounding | identical to NPP |
+| --- | --- | --- |
+| binomial / 256 | round | 29.7% |
+| integer approximation / 159 | truncate | 89.4% |
+| Gaussian, sigma 1.4 | truncate | 99.99% |
+
+Land the result: the two engines now agree on the threshold for **all 103
+images**, including `misc_ruler_512`, which had been the worst case throughout
+and whose gradient histogram has two Otsu optima within 1.7% of each other.
+NPP's own blur fed through the host Sobel reproduces its gradient bit for bit.
+
+If there is time, the one-ULP detail is worth thirty seconds: normalising the
+Gaussian weights up front agrees on 103 images, dividing at the end agrees on
+102, and the difference is invisible under rounding but decisive under
+truncation. It is a good illustration of how little slack a bit-exact
+comparison leaves.
+
+The line to say out loud on this slide: the 3x3 check existed only because the
+5x5 had needed work, and it is the only reason the first fix did not ship as
+the final answer.
 
 ## Slide 8 - What I would do next (7:30-8:00)
 
