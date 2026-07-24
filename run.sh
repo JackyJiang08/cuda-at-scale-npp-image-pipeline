@@ -22,8 +22,14 @@ BIN="bin/edge_pipeline"
 
 mkdir -p "$LOG_DIR" "$OUTPUT_DIR" "$RESULTS_DIR/samples"
 
+# Built from clean so that 00_build.log records the actual compiler
+# invocations. Without this the log reads "nothing to be done" whenever the
+# tree happens to be up to date, which is useless as evidence.
 echo "==> Building"
-make -j"$(nproc 2>/dev/null || echo 4)" 2>&1 | tee "$LOG_DIR/00_build.log"
+{
+  make clean
+  make -j"$(nproc 2>/dev/null || echo 4)"
+} 2>&1 | tee "$LOG_DIR/00_build.log"
 
 echo "==> Host tests (no GPU required)"
 make test 2>&1 | tee "$LOG_DIR/01_host_tests.log"
