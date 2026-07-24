@@ -325,9 +325,9 @@ What the logs hold:
 `results/contact_sheet.png` shows every input beside its edge map, and
 `results/pairs/` holds individual before/after pairs.
 
-Regenerating `results/proof_of_execution.tar.gz`, the archive for the
-assignment's upload field, is a matter of running `./run.sh`; it is not
-committed because every file in it is already here loose.
+[`results/proof_of_execution.tar.gz`](results/proof_of_execution.tar.gz) is
+the same evidence packaged as a single archive, for anyone who would rather
+download one file than browse the tree. `./run.sh` regenerates it.
 
 ## Dataset
 

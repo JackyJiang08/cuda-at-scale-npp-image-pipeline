@@ -9,10 +9,6 @@ bin/
 # Staging directory used while building the proof archive
 results/.staging/
 
-# The packaged archive is what gets uploaded to the assignment, but every
-# file inside it is already committed loose under results/ and data/output/,
-# so committing it too would duplicate ~13 MB. Regenerate it with ./run.sh.
-results/proof_of_execution.tar.gz
 
 # Python
 __pycache__/
