@@ -1,0 +1,19 @@
+# Build artifacts
+build/
+bin/
+*.o
+
+# data/output/ and results/ are intentionally NOT ignored: the assignment
+# asks for the generated evidence to be committed alongside the code.
+
+# Staging directory used while building the proof archive
+results/.staging/
+
+# Python
+__pycache__/
+*.pyc
+
+# Editor and OS noise
+.vscode/
+.idea/
+.DS_Store
